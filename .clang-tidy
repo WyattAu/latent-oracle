@@ -1,0 +1,12 @@
+---
+Checks: >
+  clang-diagnostic-*,
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -bugprone-easily-swappable-parameters,
+  -modernize-use-nodiscard
+WarningsAsErrors: ''
+HeaderFilterRegex: 'src/.*\.hpp$'
+FormatStyle: file
