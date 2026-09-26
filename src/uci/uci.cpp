@@ -21,7 +21,7 @@ constexpr std::size_t kRingCapacity = 256;
 
 struct Line {
     std::size_t len = 0;
-    char buf[512];
+    char buf[1024];  // long "position ... moves ..." replays
 };
 
 SpscRing<Line, kRingCapacity> g_ring;
@@ -54,6 +54,26 @@ struct Session {
     std::vector<std::uint64_t> history;  // Zobrist keys, root position included
 };
 
+// Applies a sequence of UCI move tokens to the session root. A token that
+// matches no legal move aborts the replay (never desync from the GUI).
+void apply_moves(Session& s, std::istringstream& iss) {
+    std::string mstr;
+    while (iss >> mstr) {
+        MoveList ml;
+        generate_legal(s.root, ml);
+        bool found = false;
+        for (std::uint32_t i = 0; i < ml.count; ++i) {
+            if (move_to_uci(ml.moves[i]) == mstr) {
+                s.root = apply(s.root, ml.moves[i]);
+                s.history.push_back(s.root.zobrist);
+                found = true;
+                break;
+            }
+        }
+        if (!found) return;
+    }
+}
+
 void set_position(Session& s, const std::string& line) {
     std::istringstream iss(line);
     std::string cmd, kind;
@@ -73,28 +93,22 @@ void set_position(Session& s, const std::string& line) {
         return;
     }
 
+    // UCI grammar: position [fen <fen> | startpos] [moves <move>...].
+    // The literal "moves" keyword MUST be consumed here — treating it as a
+    // move token would abort the replay and strand the root at the previous
+    // position (the exact bug fastchess caught in the M0 binary).
+    std::string tok;
+    if (iss >> tok) {
+        if (tok != "moves") return;  // malformed; ignore the command
+    }
+
     const auto parsed = parse_fen(fen);
     if (!parsed) return;
     s.root = *parsed;
     s.has_root = true;
     s.history.clear();
     s.history.push_back(s.root.zobrist);
-
-    std::string mstr;
-    while (iss >> mstr) {
-        MoveList ml;
-        generate_legal(s.root, ml);
-        bool found = false;
-        for (std::uint32_t i = 0; i < ml.count; ++i) {
-            if (move_to_uci(ml.moves[i]) == mstr) {
-                s.root = apply(s.root, ml.moves[i]);
-                s.history.push_back(s.root.zobrist);
-                found = true;
-                break;
-            }
-        }
-        if (!found) break;  // never desync on malformed input
-    }
+    apply_moves(s, iss);
 }
 
 void handle_line(Session& s, const std::string& line) {
