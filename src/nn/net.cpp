@@ -1,0 +1,248 @@
+#include "nn/net.hpp"
+
+#include <cmath>
+#include <cstring>
+#include <fstream>
+
+namespace lo::nn {
+
+namespace {
+
+constexpr std::uint32_t kMagic = 0x574E4F4C;  // "LONW" LE
+constexpr std::uint32_t kVersion = 1;
+constexpr float kLnEps = 1e-5f;
+constexpr int kMaxD = 1024;
+
+inline float gelu(float x) {
+    return 0.5f * x * (1.0f + std::erf(x * 0.70710678118654752f));
+}
+
+// y[o] = b[o] + sum_i x[i] * W[o * in_dim + i]   (W row-major [out][in])
+void linear(const float* x, const float* W, const float* b, float* y, int in_dim, int out_dim) {
+    for (int o = 0; o < out_dim; ++o) {
+        float acc = b ? b[o] : 0.0f;
+        const float* row = W + static_cast<std::size_t>(o) * in_dim;
+        for (int i = 0; i < in_dim; ++i)
+            acc += x[i] * row[i];
+        y[o] = acc;
+    }
+}
+
+void layernorm(const float* x, const float* g, const float* b, float* y, int n) {
+    float mean = 0.0f;
+    for (int i = 0; i < n; ++i) mean += x[i];
+    mean /= n;
+    float var = 0.0f;
+    for (int i = 0; i < n; ++i) {
+        const float d = x[i] - mean;
+        var += d * d;
+    }
+    var /= n;
+    const float inv = 1.0f / std::sqrt(var + kLnEps);
+    for (int i = 0; i < n; ++i) y[i] = (x[i] - mean) * inv * g[i] + b[i];
+}
+
+void softmax_inplace(float* x, int n) {
+    float mx = x[0];
+    for (int i = 1; i < n; ++i) mx = x[i] > mx ? x[i] : mx;
+    float sum = 0.0f;
+    for (int i = 0; i < n; ++i) {
+        x[i] = std::exp(x[i] - mx);
+        sum += x[i];
+    }
+    for (int i = 0; i < n; ++i) x[i] /= sum;
+}
+
+// Per-call scratch (single-threaded reference path; sized for d <= kMaxD).
+thread_local float q_buf[64 * kMaxD];
+thread_local float k_buf[64 * kMaxD];
+thread_local float v_buf[64 * kMaxD];
+thread_local float ctx[64 * kMaxD];
+thread_local float vec[kMaxD];
+thread_local float wide[4096];
+thread_local float att[64 * 64];
+
+}  // namespace
+
+std::optional<Net> Net::load(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return std::nullopt;
+
+    std::uint32_t magic = 0, version = 0;
+    NetConfig cfg;
+    f.read(reinterpret_cast<char*>(&magic), 4);
+    f.read(reinterpret_cast<char*>(&version), 4);
+    f.read(reinterpret_cast<char*>(&cfg.d), 4);
+    f.read(reinterpret_cast<char*>(&cfg.layers), 4);
+    f.read(reinterpret_cast<char*>(&cfg.heads), 4);
+    f.read(reinterpret_cast<char*>(&cfg.dff), 4);
+    f.read(reinterpret_cast<char*>(&cfg.dpol), 4);
+    if (!f || magic != kMagic || version != kVersion) return std::nullopt;
+    if (cfg.d > kMaxD || cfg.dff > 4096) return std::nullopt;
+
+    Net net;
+    net.cfg_ = cfg;
+    const std::size_t d = cfg.d, dff = cfg.dff, dpol = cfg.dpol;
+
+    const std::size_t per_layer = 2 * d                               // ln1
+                                  + 4 * (d * d + d)                   // q k v o
+                                  + 2 * d                             // ln2
+                                  + dff * d + dff + d * dff + d;      // mlp
+    const std::size_t total = (15 + 64 + 2) * d + per_layer * cfg.layers
+                              + 2 * d                                 // lnP
+                              + 2 * (dpol * d + dpol)                 // from/to
+                              + 4 * d + 4                             // promo
+                              + 2 * d                                 // lnV
+                              + 128 * d + 128 + 3 * 128 + 3;          // value
+
+    net.w_.resize(total);
+    f.read(reinterpret_cast<char*>(net.w_.data()), static_cast<std::streamsize>(total * 4));
+    if (!f) return std::nullopt;
+
+    std::size_t off = 0;
+    net.piece_emb_ = off; off += 15 * d;
+    net.square_emb_ = off; off += 64 * d;
+    net.side_emb_ = off; off += 2 * d;
+    net.layer_off_.resize(cfg.layers);
+    for (std::uint32_t l = 0; l < cfg.layers; ++l) {
+        net.layer_off_[l] = off;
+        off += per_layer;
+    }
+    net.lnP_ = off; off += 2 * d;
+    net.wfrom_ = off; off += dpol * d + dpol;
+    net.bfrom_ = net.wfrom_ + dpol * d;
+    net.wto_ = off; off += dpol * d + dpol;
+    net.bto_ = net.wto_ + dpol * d;
+    net.promoW_ = off; off += 4 * d + 4;
+    net.lnV_ = off; off += 2 * d;
+    net.v1W_ = off; off += 128 * d + 128;
+    net.v2W_ = off; off += 3 * 128 + 3;
+    return net;
+}
+
+NetOutput Net::evaluate(const PositionState& pos) const {
+    const int d = static_cast<int>(cfg_.d);
+    const int dff = static_cast<int>(cfg_.dff);
+    const int heads = static_cast<int>(cfg_.heads);
+    const int hd = d / heads;
+    const float scale = 1.0f / std::sqrt(static_cast<float>(hd));
+
+    // tokens: piece code per square (1-6 white, 9-14 black, shard convention)
+    for (int sq = 0; sq < 64; ++sq) {
+        std::uint8_t code = 0;
+        for (int t = 0; t < PIECE_NB; ++t) {
+            if (pos.pieces[WHITE][t] & SQUARE_BB[sq]) code = static_cast<std::uint8_t>(t + 1);
+            if (pos.pieces[BLACK][t] & SQUARE_BB[sq]) code = static_cast<std::uint8_t>(t + 9);
+        }
+        for (int i = 0; i < d; ++i) {
+            x_buf()[static_cast<std::size_t>(sq) * d + i] =
+                w_[piece_emb_ + static_cast<std::size_t>(code) * d + i] +
+                w_[square_emb_ + static_cast<std::size_t>(sq) * d + i] +
+                w_[side_emb_ + static_cast<std::size_t>(pos.side_to_move) * d + i];
+        }
+    }
+
+    for (std::uint32_t l = 0; l < cfg_.layers; ++l) {
+        const float* base = w_.data() + layer_off_[l];
+        const float* ln1g = base;
+        const float* ln1b = ln1g + d;
+        const float* Wq = ln1b + d;
+        const float* bq = Wq + d * d;         // bias follows its weight block
+        const float* Wk = bq + d;
+        const float* bk = Wk + d * d;
+        const float* Wv = bk + d;
+        const float* bv = Wv + d * d;
+        const float* Wo = bv + d;
+        const float* bo = Wo + d * d;
+        const float* ln2g = bo + d;
+        const float* ln2b = ln2g + d;
+        const float* W1 = ln2b + d;
+        const float* b1 = W1 + dff * d;
+        const float* W2 = b1 + dff;
+        const float* b2 = W2 + d * dff;
+
+        // q, k, v per token
+        for (int s = 0; s < 64; ++s) {
+            layernorm(&x_buf()[s * d], ln1g, ln1b, vec, d);
+            linear(vec, Wq, bq, &q_buf[s * d], d, d);
+            linear(vec, Wk, bk, &k_buf[s * d], d, d);
+            linear(vec, Wv, bv, &v_buf[s * d], d, d);
+        }
+        // attention: per-head dot products, softmax per head-row, and a
+        // per-head value slice for the context (this is the part that makes
+        // multi-head attention multi-head)
+        for (int head = 0; head < heads; ++head) {
+            for (int s = 0; s < 64; ++s) {
+                const float* qp = &q_buf[s * d + head * hd];
+                for (int t = 0; t < 64; ++t) {
+                    const float* kp = &k_buf[t * d + head * hd];
+                    float dot = 0.0f;
+                    for (int i = 0; i < hd; ++i) dot += qp[i] * kp[i];
+                    att[s * 64 + t] = dot * scale;
+                }
+                softmax_inplace(&att[s * 64], 64);
+                for (int i = 0; i < hd; ++i) {
+                    float acc = 0.0f;
+                    for (int t = 0; t < 64; ++t)
+                        acc += att[s * 64 + t] * v_buf[t * d + head * hd + i];
+                    ctx[s * d + head * hd + i] = acc;
+                }
+            }
+        }
+        // output projection + residual
+        for (int s = 0; s < 64; ++s) {
+            linear(&ctx[s * d], Wo, bo, vec, d, d);
+            for (int i = 0; i < d; ++i) x_buf()[s * d + i] += vec[i];
+        }
+        // mlp + residual
+        for (int s = 0; s < 64; ++s) {
+            layernorm(&x_buf()[s * d], ln2g, ln2b, vec, d);
+            linear(vec, W1, b1, wide, d, static_cast<int>(dff));
+            for (int i = 0; i < static_cast<int>(dff); ++i) wide[i] = gelu(wide[i]);
+            linear(wide, W2, b2, vec, static_cast<int>(dff), d);
+            for (int i = 0; i < d; ++i) x_buf()[s * d + i] += vec[i];
+        }
+    }  // layer loop
+
+    // heads
+    NetOutput out{};
+    // Per-token policy LN, then pool the LN'd tokens (architecture contract:
+    // python pools lnP(x), not raw x).
+    static thread_local float hp_buf[64 * kMaxD];
+    float pooled[kMaxD], hv[kMaxD], vhid[128];
+    for (int sq = 0; sq < 64; ++sq)
+        layernorm(&x_buf()[sq * d], w_.data() + lnP_, w_.data() + lnP_ + d, &hp_buf[sq * d], d);
+    for (int i = 0; i < d; ++i) {
+        float s = 0.0f;
+        for (int sq = 0; sq < 64; ++sq) s += hp_buf[sq * d + i];
+        pooled[i] = s / 64.0f;
+    }
+    layernorm(pooled, w_.data() + lnV_, w_.data() + lnV_ + d, hv, d);
+
+    const int dpol = static_cast<int>(cfg_.dpol);
+    // ef/et reuse the q/k scratch (d-sized per token, dpol <= d)
+    for (int sq = 0; sq < 64; ++sq) {
+        linear(&hp_buf[sq * d], w_.data() + wfrom_, w_.data() + bfrom_, &q_buf[sq * d], d, dpol);
+        linear(&hp_buf[sq * d], w_.data() + wto_, w_.data() + bto_, &k_buf[sq * d], d, dpol);
+    }
+    for (int u = 0; u < 64; ++u)
+        for (int v = 0; v < 64; ++v) {
+            float dot = 0.0f;
+            for (int i = 0; i < dpol; ++i) dot += q_buf[u * d + i] * k_buf[v * d + i];
+            out.scores[u * 64 + v] = dot / std::sqrt(static_cast<float>(dpol));
+        }
+    linear(pooled, w_.data() + promoW_, w_.data() + promoW_ + 4 * d, out.promo_logit, d, 4);
+
+    linear(hv, w_.data() + v1W_, w_.data() + v1W_ + 128 * d, vhid, d, 128);
+    for (int i = 0; i < 128; ++i) vhid[i] = gelu(vhid[i]);
+    linear(vhid, w_.data() + v2W_, w_.data() + v2W_ + 3 * 128, out.wdl, 128, 3);
+    softmax_inplace(out.wdl, 3);
+    return out;
+}
+
+float* Net::x_buf() {
+    static thread_local float buf[64 * kMaxD];
+    return buf;
+}
+
+}  // namespace lo::nn

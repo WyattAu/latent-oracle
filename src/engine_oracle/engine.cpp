@@ -156,4 +156,48 @@ Move bestmove(const PositionState& p, const std::vector<std::uint64_t>& key_hist
     return best;
 }
 
+Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
+                  const nn::Net& net) {
+    MoveList ml;
+    generate_legal(p, ml);
+    if (ml.count == 0) return MOVE_NONE;
+
+    const nn::NetOutput out = net.evaluate(p);
+    // WDL head is side-to-move POV.
+    const float pwin = out.wdl[0], ploss = out.wdl[2];
+
+    Move best = ml.moves[0];
+    float best_score = -std::numeric_limits<float>::infinity();
+
+    for (std::uint32_t i = 0; i < ml.count; ++i) {
+        const Move m = ml.moves[i];
+        float sc = out.scores[move_from(m) * 64 + move_to(m)];
+        if (move_type(m) == MT_PROMO) sc += out.promo_logit[move_promo(m)];
+
+        const PositionState child = apply(p, m);
+        if (insufficient_material(child)) {
+            sc = -1e9f + static_cast<float>(i);  // dead draw, cannot be avoided
+        } else {
+            const bool child_draw =
+                child.halfmove >= 150 ||
+                count_key(key_history, child.zobrist) >= 2;
+            if (child_draw) {
+                // Winning: forbid the draw. Losing: seek it. Else: zero.
+                if (pwin > 0.6f)
+                    sc = -1e6f + static_cast<float>(i);
+                else if (ploss > 0.6f)
+                    sc = 1e6f - static_cast<float>(i);
+                else
+                    sc = 0.0f;
+            }
+        }
+
+        if (sc > best_score) {
+            best_score = sc;
+            best = m;
+        }
+    }
+        return best;
+}
+
 }  // namespace lo::engine

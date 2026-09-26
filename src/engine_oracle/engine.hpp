@@ -1,11 +1,10 @@
 #pragma once
 
-// Engine A, milestone-M0 form: a material + piece-square argmax over legal
-// moves, gated by the symbolic invariants that survive into every later
-// version: three-fold repetition, the 75-move automatic draw, and dead-
-// position detection. The neural policy replaces `evaluate` in M1/M2; the
-// gates stay.
+// Engine A. Milestone-M0 form: material + piece-square argmax gated by the
+// symbolic invariants. M1 adds the neural path: a loaded network replaces
+// evaluation with policy scores while the gates stay identical.
 
+#include "nn/net.hpp"
 #include "position.hpp"
 
 #include <cstdint>
@@ -13,12 +12,15 @@
 
 namespace lo::engine {
 
-// White-relative static evaluation in centipawns.
+// White-relative static evaluation in centipawns (M0 baseline).
 int evaluate(const PositionState& p);
 
-// Deterministic best move for the side to move, or MOVE_NONE if checkmate/
-// stalemate. `key_history` holds the Zobrist keys of all positions since the
-// root of the game (root included), used for repetition detection.
+// Deterministic best move (PST eval), or MOVE_NONE if checkmate/stalemate.
 Move bestmove(const PositionState& p, const std::vector<std::uint64_t>& key_history);
+
+// Neural path: policy scores from `net`, draw gates via its WDL head and the
+// same symbolic invariants. Deterministic.
+Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
+                  const nn::Net& net);
 
 }  // namespace lo::engine

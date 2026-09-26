@@ -2,10 +2,12 @@
 
 #include "engine_oracle/engine.hpp"
 #include "movegen/movegen.hpp"
+#include "nn/net.hpp"
 #include "uci/spsc_ring.hpp"
 
 #include <atomic>
 #include <chrono>
+#include <optional>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -52,6 +54,8 @@ struct Session {
     PositionState root{};
     bool has_root = false;
     std::vector<std::uint64_t> history;  // Zobrist keys, root position included
+    std::string weights_path;            // empty => PST fallback
+    std::optional<lo::nn::Net> net;
 };
 
 // Applies a sequence of UCI move tokens to the session root. A token that
@@ -119,17 +123,37 @@ void handle_line(Session& s, const std::string& line) {
     if (cmd == "uci") {
         std::cout << "id name latent-oracle 0.1.0\n";
         std::cout << "id author Wyatt Au\n";
+        std::cout << "option name WeightsFile type string default\n";
         std::cout << "uciok\n" << std::flush;
     } else if (cmd == "isready") {
         std::cout << "readyok\n" << std::flush;
     } else if (cmd == "ucinewgame") {
         s.has_root = false;
         s.history.clear();
+    } else if (cmd == "setoption") {
+        // setoption name WeightsFile value <path>
+        auto npos = line.find("name ");
+        auto vpos = line.find(" value ");
+        if (npos != std::string::npos && vpos != std::string::npos) {
+            std::string name = line.substr(npos + 5, vpos - (npos + 5));
+            // trim
+            while (!name.empty() && name.back() == ' ') name.pop_back();
+            if (name == "WeightsFile") {
+                s.weights_path = line.substr(vpos + 7);
+                s.net = lo::nn::Net::load(s.weights_path);
+                if (!s.net)
+                    std::cout << "info string cannot load weights: " << s.weights_path << "\n" << std::flush;
+            }
+        }
     } else if (cmd == "position") {
         set_position(s, line);
     } else if (cmd == "go") {
         g_stop.store(false, std::memory_order_relaxed);
-        const Move best = s.has_root ? engine::bestmove(s.root, s.history) : MOVE_NONE;
+        Move best = MOVE_NONE;
+        if (s.has_root) {
+            best = s.net ? engine::bestmove_net(s.root, s.history, *s.net)
+                         : engine::bestmove(s.root, s.history);
+        }
         std::cout << "bestmove " << (best == MOVE_NONE ? std::string("0000") : move_to_uci(best))
                   << "\n"
                   << std::flush;
