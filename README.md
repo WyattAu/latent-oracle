@@ -17,8 +17,8 @@ strictly as a binary label generator in training (M1+); no GPL source is read.
 
 | Milestone | Scope | State |
 |-----------|-------|-------|
-| M0 | Board core: 128-byte `PositionState`, PEXT/magic/classical movegen, perft to d6, UCI, symbolic draw gates | **in progress** |
-| M1 | Lichess DB + Stockfish-labeled distillation; first policy-only Elo | — |
+| M0 | Board core: 128-byte `PositionState`, PEXT/magic/classical movegen, perft to d6, UCI, symbolic draw gates | **done** |
+| M1 | Lichess DB + Stockfish-labeled distillation; first policy-only Elo | **pipeline live** (data worker + labeler + trainer + FP32 reference inference, parity 5e-6) |
 | M2 | INT8 AVX-512 VNNI inference; dot-product policy head; Engine A complete | — |
 | M3 | Architecture ablations (the research map) | — |
 | M4 | Engine B: micro-eval quiescence verification layer, node-budget curve | — |
