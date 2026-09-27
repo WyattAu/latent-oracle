@@ -23,4 +23,10 @@ Move bestmove(const PositionState& p, const std::vector<std::uint64_t>& key_hist
 Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
                   const nn::Net& net);
 
+// Own remaining time in milliseconds (INT64_MAX when unknown). Below
+// kLowTimeMs the neural path defers to the instant PST path: the reference
+// inference costs ~0.3-0.7 s and flagging wastes a full point.
+Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
+                  const nn::Net& net, std::int64_t own_time_ms);
+
 }  // namespace lo::engine

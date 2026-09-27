@@ -157,7 +157,11 @@ Move bestmove(const PositionState& p, const std::vector<std::uint64_t>& key_hist
 }
 
 Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                  const nn::Net& net) {
+                  const nn::Net& net, std::int64_t own_time_ms) {
+    // Low clock: the net call costs ~0.3-0.7 s; the PST path costs ~us.
+    // Playing a weaker move beats losing on time.
+    if (own_time_ms >= 0 && own_time_ms < 10000) return bestmove(p, key_history);
+
     MoveList ml;
     generate_legal(p, ml);
     if (ml.count == 0) return MOVE_NONE;

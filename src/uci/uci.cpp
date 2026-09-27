@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <limits>
 #include <optional>
 #include <cstring>
 #include <iostream>
@@ -149,9 +150,30 @@ void handle_line(Session& s, const std::string& line) {
         set_position(s, line);
     } else if (cmd == "go") {
         g_stop.store(false, std::memory_order_relaxed);
+        // Own remaining time from the go parameters (wtime when white, btime
+        // when black); INT64_MAX when absent.
+        std::int64_t own_time = std::numeric_limits<std::int64_t>::max();
+        {
+            std::istringstream gs(line);
+            std::string tok;
+            std::int64_t wtime = -1, btime = -1;
+            bool have_clock = false;
+            while (gs >> tok) {
+                if (tok == "wtime" || tok == "btime") {
+                    std::int64_t v = -1;
+                    if (gs >> v) {
+                        (tok == "wtime" ? wtime : btime) = v;
+                        have_clock = true;
+                    }
+                }
+            }
+            if (have_clock && s.has_root)
+                own_time = (s.root.side_to_move == 0) ? wtime : btime;
+            if (own_time < 0) own_time = std::numeric_limits<std::int64_t>::max();
+        }
         Move best = MOVE_NONE;
         if (s.has_root) {
-            best = s.net ? engine::bestmove_net(s.root, s.history, *s.net)
+            best = s.net ? engine::bestmove_net(s.root, s.history, *s.net, own_time)
                          : engine::bestmove(s.root, s.history);
         }
         std::cout << "bestmove " << (best == MOVE_NONE ? std::string("0000") : move_to_uci(best))
