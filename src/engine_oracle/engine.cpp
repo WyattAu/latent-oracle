@@ -1,6 +1,7 @@
 #include "engine_oracle/engine.hpp"
 
 #include "movegen/movegen.hpp"
+#include "tb/tb.hpp"
 
 #include <array>
 #include <limits>
@@ -119,6 +120,15 @@ Move bestmove(const PositionState& p, const std::vector<std::uint64_t>& key_hist
     generate_legal(p, ml);
     if (ml.count == 0) return MOVE_NONE;
 
+    // Tablebase root probe (same rationale as the net path).
+    if (tb::available() && popcount(occupancy_all(p)) <= 5) {
+        if (auto tbm = tb::probe_root(p)) {
+            for (std::uint32_t i = 0; i < ml.count; ++i) {
+                if ((ml.moves[i] & 0x0FFF) == (*tbm & 0x0FFF)) return *tbm;
+            }
+        }
+    }
+
     Move best = ml.moves[0];
     int best_score = std::numeric_limits<int>::min();
 
@@ -161,6 +171,19 @@ Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_
     // Low clock: the net call costs ~0.3-0.7 s; the PST path costs ~us.
     // Playing a weaker move beats losing on time.
     if (own_time_ms >= 0 && own_time_ms < 10000) return bestmove(p, key_history);
+
+    // Tablebase root probe: provable endgame play beats the policy exactly
+    // where a searchless engine is weakest (converting trivially won
+    // endgames). The probe is DTZ-correct and respects the 50-move clock.
+    if (tb::available() && popcount(occupancy_all(p)) <= 5) {
+        if (auto tbm = tb::probe_root(p)) {
+            MoveList tml;
+            generate_legal(p, tml);
+            for (std::uint32_t i = 0; i < tml.count; ++i) {
+                if ((tml.moves[i] & 0x0FFF) == (*tbm & 0x0FFF)) return *tbm;
+            }
+        }
+    }
 
     MoveList ml;
     generate_legal(p, ml);

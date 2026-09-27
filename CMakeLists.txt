@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.28...4.0)
 project(latent-oracle
     VERSION 0.1.0
     DESCRIPTION "Searchless neural chess research engine"
-    LANGUAGES CXX)
+    LANGUAGES C CXX)
 
 # ----------------------------------------------------------------------------
 # Options (sanitizer structure adapted from WyattAu/OmniCPP-template)
@@ -43,6 +43,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(Threads REQUIRED)
 
 # ----------------------------------------------------------------------------
+# Fathom (Syzygy probing) - vendored, MIT (third_party/fathom, see PROVENANCE)
+# ----------------------------------------------------------------------------
+add_library(fathom STATIC third_party/fathom/tbprobe.c)
+target_include_directories(fathom PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fathom)
+target_compile_options(fathom PRIVATE -w)
+
+# ----------------------------------------------------------------------------
 # Sanitizers. Must precede all target definitions: add_compile_options only
 # affects targets created afterwards, and a partially instrumented build
 # (runtime linked, compile flags missing) silently disables atomic tracking
@@ -69,8 +76,10 @@ add_library(lo_core STATIC
     src/movegen/movegen.cpp
     src/position.cpp
     src/nn/net.cpp
+    src/tb/tb.cpp
     src/engine_oracle/engine.cpp
     src/uci/uci.cpp)
+target_link_libraries(lo_core PUBLIC fathom)
 
 target_include_directories(lo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(lo_core PUBLIC Threads::Threads)

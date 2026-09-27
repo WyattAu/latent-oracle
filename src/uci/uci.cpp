@@ -3,6 +3,7 @@
 #include "engine_oracle/engine.hpp"
 #include "movegen/movegen.hpp"
 #include "nn/net.hpp"
+#include "tb/tb.hpp"
 #include "uci/spsc_ring.hpp"
 
 #include <atomic>
@@ -139,7 +140,10 @@ void handle_line(Session& s, const std::string& line) {
             std::string name = line.substr(npos + 5, vpos - (npos + 5));
             // trim
             while (!name.empty() && name.back() == ' ') name.pop_back();
-            if (name == "WeightsFile") {
+            if (name == "SyzygyPath") {
+                const bool ok = lo::tb::init(line.substr(vpos + 7));
+                std::cout << "info string syzygy " << (ok ? "loaded" : "FAILED") << "\n" << std::flush;
+            } else if (name == "WeightsFile") {
                 s.weights_path = line.substr(vpos + 7);
                 s.net = lo::nn::Net::load(s.weights_path);
                 if (!s.net)

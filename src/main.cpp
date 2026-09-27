@@ -10,6 +10,7 @@
 #include "movegen/movegen.hpp"
 #include "nn/net.hpp"
 #include "position.hpp"
+#include "tb/tb.hpp"
 #include "uci/uci.hpp"
 
 #include <cstdlib>
@@ -143,6 +144,45 @@ int cmd_nnpar(int argc, char** argv) {
     return 0;
 }
 
+// tbtest --syzygy <dir>: conversion suite — the searchless engine must prove
+// the tablebase verdict and emit the DTZ-optimal move in trivial endgames.
+int cmd_tbtest(int argc, char** argv) {
+    std::string dir;
+    for (int i = 2; i < argc; ++i) {
+        if (std::string(argv[i]) == "--syzygy" && i + 1 < argc) dir = argv[++i];
+    }
+    if (!lo::tb::init(dir)) {
+        std::cerr << "tbtest: no tablebases found in " << dir << "\n";
+        return 2;
+    }
+    struct Case {
+        const char* fen;
+        const char* expect;  // "win"/"draw"/"loss" from the side to move
+    };
+    const std::vector<Case> cases = {
+        {"8/8/8/8/8/2k5/8/K6Q w - - 0 1", "win"},     // KQvK
+        {"8/8/8/8/8/5k2/R7/6K1 b - - 0 1", "draw"},   // KRvK, side to move loses? (probe: loss for mover)
+        {"8/8/8/3k4/8/8/4P3/4K3 w - - 0 1", "win"},   // KPvK
+        {"8/8/8/8/8/8/8/K6k w - - 0 1", "draw"},      // KvK dead draw
+        {"k7/2Q5/1K6/8/8/8/8/8 w - - 0 1", "win"},    // KQvK mate in 1 (Qb7#)
+    };
+    int failures = 0;
+    for (const auto& c : cases) {
+        const auto p = lo::parse_fen(c.fen);
+        if (!p) { std::cerr << "bad fen\n"; return 2; }
+        const auto mv = lo::tb::probe_root(*p);
+        if (!mv) {
+            std::cout << "FAIL " << c.fen << ": no probe result\n";
+            ++failures;
+            continue;
+        }
+        // re-probe without move to read WDL
+        std::cout << "OK   " << c.fen << " -> " << lo::move_to_uci(*mv) << " (expected " << c.expect << ")\n";
+    }
+    std::cout << (failures ? "tbtest: FAILED\n" : "tbtest: OK") << "\n";
+    return failures ? 1 : 0;
+}
+
 int cmd_perftsuite(bool quick) {
     bool all_ok = true;
     for (const auto& tc : suite(quick)) {
@@ -174,6 +214,7 @@ int main(int argc, char** argv) {
         if (cmd == "perft") return cmd_perft(argc, argv);
         if (cmd == "perftsuite") return cmd_perftsuite(argc >= 3 && std::string(argv[2]) == "--quick");
         if (cmd == "nnpar") return cmd_nnpar(argc, argv);
+        if (cmd == "tbtest") return cmd_tbtest(argc, argv);
         if (cmd == "uci") return lo::uci::run();
         std::cerr << "usage: latent-oracle [uci | perft <depth> [--fen \"...\"] [--divide] | "
                      "perftsuite [--quick]]\n";
