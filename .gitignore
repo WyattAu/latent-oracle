@@ -5,3 +5,4 @@ compile_commands.json
 *.log
 *.o
 *.a
+config.json
