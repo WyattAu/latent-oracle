@@ -3,9 +3,10 @@ Copyright 2026 Wyatt Au
 
 This product includes software developed by Wyatt Au.
 
-Planned third-party component (embedded from milestone M4):
-  * Fathom (Syzygy tablebase probing) -- Matthew L. Allano et al.,
-    MIT License. https://github.com/jdart1/Fathom
+This product includes third-party software:
+  * Fathom (Syzygy tablebase probing) -- Ronald de Man, basil00,
+    Jon Dart et al. MIT License. Vendored in third_party/fathom.
+    https://github.com/jdart1/Fathom
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

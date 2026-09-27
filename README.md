@@ -54,6 +54,19 @@ correct binary.
 ./build/debug/latent-oracle perftsuite --quick
 ```
 
+## Tablebases
+
+Syzygy 3-4-5-man WDL/DTZ tables are supported via vendored Fathom: when a
+position has ≤5 men and no castling rights, the engine plays the DTZ-optimal
+tablebase move (provably converting won endgames — the classic blind spot of
+searchless policies). Point it at a table directory with:
+
+```
+setoption name SyzygyPath value /path/to/syzygy
+```
+
+Tables: https://tablebase.lichess.org/tables/standard/3-4-5-*
+
 ## Design notes
 
 * `PositionState` is exactly 128 bytes (two cache lines): 12 piece bitboards,

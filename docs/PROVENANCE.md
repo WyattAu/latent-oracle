@@ -20,8 +20,8 @@ reason this file exists.
    public-domain reference data (Chess Programming Wiki perft counts).
 3. Every external influence is recorded in the table below before its effect
    lands in `src/`.
-4. Third-party linked code must be Apache/MIT/BSD. Current and planned:
-   Fathom (MIT, embedded from M4 via CPM).
+4. Third-party linked code must be Apache/MIT/BSD. Current:
+   Fathom (MIT, vendored in third_party/fathom).
 
 ## Provenance log
 
@@ -31,6 +31,7 @@ reason this file exists.
 | 2026-09-26 | WyattAu/shm-rings | MIT/Apache-2.0 | Specification only. The UCI SPSC ring's contract (power-of-two capacity, cache-line-separated indices, acquire/release ordering) follows the requirements and SLO discipline of the Rust crate. Implementation is original C++. |
 | 2026-09-26 | WyattAu/slab-pool | MIT/Apache-2.0 | Specification only. Static-allocation discipline for search structures. No code. |
 | 2026-09-26 | Chess Programming Wiki | public domain | Reference perft values for standard test positions (facts, not code) |
+| 2026-09-27 | jdart1/Fathom (vendored) | MIT | Syzygy probing: third_party/fathom (tbprobe.c inlines tbchess.c). Wrapper in src/tb/ is original. |
 
 ## Data provenance (M1+)
 
