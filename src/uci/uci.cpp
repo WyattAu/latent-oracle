@@ -84,26 +84,26 @@ void set_position(Session& s, const std::string& line) {
     iss >> cmd >> kind;
 
     std::string fen;
+    // UCI grammar: position [fen <fen> | startpos] [moves <move>...].
+    //
+    // The "moves" keyword belongs to the grammar, and each branch must leave
+    // the stream positioned at the first move token. The FEN branch consumes
+    // it inside its field loop (breaking on it); the startpos branch has no
+    // fields to skip, so the first token after "startpos" is already a move.
+    // A previous revision checked for the keyword AGAIN here, which consumed
+    // the first move of `position fen <fen> moves ...` and silently ignored
+    // the whole command — the engine then answered a stale root mid-game.
     if (kind == "startpos") {
         fen = std::string(STARTPOS_FEN);
     } else if (kind == "fen") {
-        std::string tok;
-        while (iss >> tok) {
-            if (tok == "moves") break;
-            fen += tok;
+        std::string t;
+        while (iss >> t) {
+            if (t == "moves") break;
+            fen += t;
             fen += ' ';
         }
     } else {
         return;
-    }
-
-    // UCI grammar: position [fen <fen> | startpos] [moves <move>...].
-    // The literal "moves" keyword MUST be consumed here — treating it as a
-    // move token would abort the replay and strand the root at the previous
-    // position (the exact bug fastchess caught in the M0 binary).
-    std::string tok;
-    if (iss >> tok) {
-        if (tok != "moves") return;  // malformed; ignore the command
     }
 
     const auto parsed = parse_fen(fen);
