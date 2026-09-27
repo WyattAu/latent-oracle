@@ -18,7 +18,17 @@ strictly as a binary label generator in training (M1+); no GPL source is read.
 | Milestone | Scope | State |
 |-----------|-------|-------|
 | M0 | Board core: 128-byte `PositionState`, PEXT/magic/classical movegen, perft to d6, UCI, symbolic draw gates | **done** |
-| M1 | Lichess DB + Stockfish-labeled distillation; first policy-only Elo | **pipeline live** (data worker + labeler + trainer + FP32 reference inference, parity 5e-6) |
+| M1 | Lichess DB + Stockfish-labeled distillation; first policy-only Elo | **first numbers live** (see below) |
+
+## First results (research map, v0)
+
+| Engine | Conditions | Result |
+|--------|-----------|--------|
+| BC-v0 (6.4M params, 2 epochs × 20M Lichess positions) | SPRT 200 games vs SF16 `go depth 1`, openings from own shard | **51.75% (74W/59D/75L) ≈ SF16-d1 level** |
+
+Provenance: `sprt/bc-v0.pgn` + phase-C logs; opponent pool SF16.1 fixed
+depth, 60+6 clock, 2000-position EPD openings sampled from the training
+shard. Distilled (1M/5M SF-label) numbers pending.
 | M2 | INT8 AVX-512 VNNI inference; dot-product policy head; Engine A complete | — |
 | M3 | Architecture ablations (the research map) | — |
 | M4 | Engine B: micro-eval quiescence verification layer, node-budget curve | — |
