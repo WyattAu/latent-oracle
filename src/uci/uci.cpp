@@ -24,7 +24,7 @@ constexpr std::size_t kRingCapacity = 256;
 
 struct Line {
     std::size_t len = 0;
-    char buf[1024];  // long "position ... moves ..." replays
+    char buf[4096];  // long "position ... moves ..." replays
 };
 
 SpscRing<Line, kRingCapacity> g_ring;
