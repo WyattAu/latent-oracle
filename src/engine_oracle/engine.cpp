@@ -166,8 +166,9 @@ Move bestmove(const PositionState& p, const std::vector<std::uint64_t>& key_hist
     return best;
 }
 
-Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                  const nn::Net& net, std::int64_t own_time_ms) {
+template <typename NetT>
+Move bestmove_net_impl(const PositionState& p, const std::vector<std::uint64_t>& key_history,
+                       const NetT& net, std::int64_t own_time_ms) {
     // Low clock: the net call costs ~0.3-0.7 s; the PST path costs ~us.
     // Playing a weaker move beats losing on time.
     if (own_time_ms >= 0 && own_time_ms < 10000) return bestmove(p, key_history);
@@ -189,7 +190,7 @@ Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_
     generate_legal(p, ml);
     if (ml.count == 0) return MOVE_NONE;
 
-    const nn::NetOutput out = net.evaluate(p);
+    const auto out = net.evaluate(p);
     // WDL head is side-to-move POV.
     const float pwin = out.wdl[0], ploss = out.wdl[2];
 
@@ -225,6 +226,16 @@ Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_
         }
     }
         return best;
+}
+
+Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
+                  const nn::Net& net, std::int64_t own_time_ms) {
+    return bestmove_net_impl(p, key_history, net, own_time_ms);
+}
+
+Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& key_history,
+                    const nn::NetQ& net, std::int64_t own_time_ms) {
+    return bestmove_net_impl(p, key_history, net, own_time_ms);
 }
 
 }  // namespace lo::engine

@@ -5,6 +5,7 @@
 // evaluation with policy scores while the gates stay identical.
 
 #include "nn/net.hpp"
+#include "nn/netq.hpp"
 #include "position.hpp"
 
 #include <cstdint>
@@ -28,5 +29,9 @@ Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_
 // inference costs ~0.3-0.7 s and flagging wastes a full point.
 Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
                   const nn::Net& net, std::int64_t own_time_ms);
+
+// Same gates, INT8 quantized inference.
+Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& key_history,
+                    const nn::NetQ& net, std::int64_t own_time_ms);
 
 }  // namespace lo::engine

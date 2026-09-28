@@ -9,6 +9,7 @@
 #include "movegen/attack.hpp"
 #include "movegen/movegen.hpp"
 #include "nn/net.hpp"
+#include "nn/netq.hpp"
 #include "position.hpp"
 #include "tb/tb.hpp"
 #include "uci/uci.hpp"
@@ -183,6 +184,45 @@ int cmd_tbtest(int argc, char** argv) {
     return failures ? 1 : 0;
 }
 
+// nnqpar: INT8 counterpart of nnpar — prints WDL + legal-move scores from a
+// LOQW blob for the parity harness.
+int cmd_nnqpar(int argc, char** argv) {
+    std::string weights, fen(lo::STARTPOS_FEN);
+    for (int i = 2; i < argc; ++i) {
+        const std::string a = argv[i];
+        if (a == "--weights" && i + 1 < argc) weights = argv[++i];
+        else if (a == "--fen") {
+            fen.clear();
+            for (int j = i + 1; j < argc; ++j) {
+                if (std::string(argv[j]).rfind("--", 0) == 0) break;
+                if (!fen.empty()) fen += ' ';
+                fen += argv[j];
+            }
+        }
+    }
+    auto net = lo::nn::NetQ::load(weights);
+    if (!net) {
+        std::cerr << "nnqpar: cannot load int8 weights: " << weights << "\n";
+        return 2;
+    }
+    const auto p = lo::parse_fen(fen);
+    if (!p) {
+        std::cerr << "nnqpar: bad fen\n";
+        return 2;
+    }
+    const auto out = net->evaluate(*p);
+    std::cout << "WDL " << out.wdl[0] << " " << out.wdl[1] << " " << out.wdl[2] << "\n";
+    lo::MoveList ml;
+    lo::generate_legal(*p, ml);
+    for (std::uint32_t i = 0; i < ml.count; ++i) {
+        const lo::Move m = ml.moves[i];
+        float sc = out.scores[lo::move_from(m) * 64 + lo::move_to(m)];
+        if (lo::move_type(m) == lo::MT_PROMO) sc += out.promo_logit[lo::move_promo(m)];
+        std::cout << lo::move_to_uci(m) << " " << sc << "\n";
+    }
+    return 0;
+}
+
 int cmd_perftsuite(bool quick) {
     bool all_ok = true;
     for (const auto& tc : suite(quick)) {
@@ -214,6 +254,7 @@ int main(int argc, char** argv) {
         if (cmd == "perft") return cmd_perft(argc, argv);
         if (cmd == "perftsuite") return cmd_perftsuite(argc >= 3 && std::string(argv[2]) == "--quick");
         if (cmd == "nnpar") return cmd_nnpar(argc, argv);
+        if (cmd == "nnqpar") return cmd_nnqpar(argc, argv);
         if (cmd == "tbtest") return cmd_tbtest(argc, argv);
         if (cmd == "uci") return lo::uci::run();
         std::cerr << "usage: latent-oracle [uci | perft <depth> [--fen \"...\"] [--divide] | "

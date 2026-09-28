@@ -76,6 +76,7 @@ add_library(lo_core STATIC
     src/movegen/movegen.cpp
     src/position.cpp
     src/nn/net.cpp
+    src/nn/netq.cpp
     src/tb/tb.cpp
     src/engine_oracle/engine.cpp
     src/uci/uci.cpp)
