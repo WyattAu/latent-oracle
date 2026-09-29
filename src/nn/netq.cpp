@@ -102,6 +102,9 @@ void NetQ::qlinear(const float* in, const QL& q, float* out) const {
         for (int i = 0; i < in_dim; ++i) t0 += (int(q_a[i]) - 128) * int(w[i]);
         std::fprintf(stderr, "[ql#0 t0] acc_o0 = %d | (128-zp)*rs0 = %d * %d\n",
                      t0, 128 - q.act_zp, rs[q.rs_off]);
+        std::int32_t t1 = 0;
+        for (int i = 0; i < in_dim; ++i) t1 += (int(q_a[i]) - 128) * int(w[in_dim + i]);
+        std::fprintf(stderr, "[ql#0 t0] acc_o1 = %d | rs1 = %d\n", t1, rs[q.rs_off + 1]);
         std::fprintf(stderr, "[ql#0] wrow0[0..8] =");
         for (int i = 0; i < 8; ++i) std::fprintf(stderr, " %d", int(w[i]));
         std::fprintf(stderr, "\n[ql#0] w_off=%zu ws_off=%zu b_off=%zu rs_off=%zu\n",
