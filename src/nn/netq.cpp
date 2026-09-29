@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 
@@ -86,6 +88,25 @@ void NetQ::qlinear(const float* in, const QL& q, float* out) const {
         const long v = std::lround(in[i] / q.act_s) + q.act_zp;
         q_a[i] = static_cast<std::uint8_t>(std::clamp(v, 0L, 255L));
     }
+    static thread_local int call = 0;
+    const bool dbg = std::getenv("LO_NQ_DEBUG") && call < 1;
+    ++call;
+    if (dbg) {
+        std::fprintf(stderr, "[ql#0 t0] in[0..4] = %.6f %.6f %.6f %.6f\n",
+                     in[0], in[1], in[2], in[3]);
+        std::fprintf(stderr, "[ql#0 t0] act_s=%.6f zp=%d w_s=%.6f\n", q.act_s, q.act_zp, f_[q.ws_off]);
+        std::fprintf(stderr, "[ql#0 t0] qa[0..8] =");
+        for (int i = 0; i < 8; ++i) std::fprintf(stderr, " %d", q_a[i]);
+        std::fprintf(stderr, "\n");
+        std::int32_t t0 = 0;
+        for (int i = 0; i < in_dim; ++i) t0 += (int(q_a[i]) - 128) * int(w[i]);
+        std::fprintf(stderr, "[ql#0 t0] acc_o0 = %d | (128-zp)*rs0 = %d * %d\n",
+                     t0, 128 - q.act_zp, rs[q.rs_off]);
+        std::fprintf(stderr, "[ql#0] wrow0[0..8] =");
+        for (int i = 0; i < 8; ++i) std::fprintf(stderr, " %d", int(w[i]));
+        std::fprintf(stderr, "\n[ql#0] w_off=%zu ws_off=%zu b_off=%zu rs_off=%zu\n",
+                     q.w_off, q.ws_off, q.b_off, q.rs_off);
+    }
 
 #if defined(__x86_64__)
     static const bool has_avx2 = __builtin_cpu_supports("avx2") != 0;
@@ -112,6 +133,9 @@ void NetQ::qlinear(const float* in, const QL& q, float* out) const {
                       q.act_s * f_[q.ws_off + o]) +
                      f_[q.b_off + o];
         }
+        if (dbg)
+            std::fprintf(stderr, "[ql#0 t0][avx2] out[0] = %.6f (expect ~%.6f)\n", out[0],
+                         4440.0f * 0.024810f * 0.0024364f + f_[q.b_off]);
         return;
     }
 #endif
@@ -122,6 +146,10 @@ void NetQ::qlinear(const float* in, const QL& q, float* out) const {
         out[o] = (static_cast<float>(total + (128 - q.act_zp) * rs[q.rs_off + o]) * q.act_s *
                   f_[q.ws_off + o]) +
                  f_[q.b_off + o];
+    }
+    if (dbg) {
+        std::fprintf(stderr, "[ql#0 t0] out[0] = %.6f (expect ~%.6f)\n", out[0],
+                     4440.0f * 0.024810f * 0.0024364f + f_[q.b_off]);
     }
 }
 
@@ -225,15 +253,39 @@ NetQOutput NetQ::evaluate(const PositionState& pos) const {
         }
     }
 
+    const bool dbg = std::getenv("LO_NQ_DEBUG") != nullptr;
     for (std::uint32_t l = 0; l < cfg_.layers; ++l) {
         const std::size_t ln1 = ln1_off_[l], ln2 = ln2_off_[l], wo = wo_off_[l];
         const std::size_t wq = ql_from_ + l * 5;
+        if (dbg && l == 0) {
+            std::fprintf(stderr, "tokens[0][0..4] = %.6f %.6f %.6f %.6f\n",
+                         q_x[0], q_x[1], q_x[2], q_x[3]);
+        }
 
         for (int s = 0; s < 64; ++s) {
             layernorm(&q_x[s * d], f_.data() + ln1, f_.data() + ln1 + d, q_vec, d);
             qlinear(q_vec, ql_[wq], &q_q[s * d]);
             qlinear(q_vec, ql_[wq + 1], &q_k[s * d]);
             qlinear(q_vec, ql_[wq + 2], &q_v[s * d]);
+            if (dbg && l == 0 && s == 0) {
+                std::fprintf(stderr, "q0[0..4] = %.6f %.6f %.6f %.6f\n",
+                             q_q[0], q_q[1], q_q[2], q_q[3]);
+                std::fprintf(stderr, "k0[0..4] = %.6f %.6f %.6f %.6f\n",
+                             q_k[0], q_k[1], q_k[2], q_k[3]);
+                std::fprintf(stderr, "v0[0..4] = %.6f %.6f %.6f %.6f\n",
+                             q_v[0], q_v[1], q_v[2], q_v[3]);
+                // Wk QL params + raw weight bytes
+                const auto& wk = ql_[wq + 1];
+                std::fprintf(stderr, "Wk: act_s=%.6f zp=%d w_s=%.6f in=%d out=%d w_off=%zu\n",
+                             wk.act_s, wk.act_zp, f_[wk.ws_off], wk.in_dim, wk.out_dim, wk.w_off);
+                std::fprintf(stderr, "Wk w[0][0..8] =");
+                for (int i = 0; i < 8; ++i)
+                    std::fprintf(stderr, " %d", int(iw_[wk.w_off + i]));
+                std::fprintf(stderr, "\nWk w[1][0..8] =");
+                for (int i = 0; i < 8; ++i)
+                    std::fprintf(stderr, " %d", int(iw_[wk.w_off + wk.in_dim + i]));
+                std::fprintf(stderr, "\n");
+            }
         }
 
         for (int head = 0; head < heads; ++head) {
@@ -264,6 +316,16 @@ NetQOutput NetQ::evaluate(const PositionState& pos) const {
             for (int i = 0; i < dff; ++i) q_wide[i] = gelu(q_wide[i]);
             qlinear(q_wide, ql_[wq + 4], q_vec);
             for (int i = 0; i < d; ++i) q_x[s * d + i] += q_vec[i];
+        }
+        if (dbg && l == 0) {
+            std::fprintf(stderr, "after_block0[0][0..4] = %.6f %.6f %.6f %.6f\n",
+                         q_x[0], q_x[1], q_x[2], q_x[3]);
+        }
+        if (dbg && l == 0) {
+            std::fprintf(stderr, "pre_mlp_ln2[0][0..4] = %.6f %.6f %.6f %.6f\n",
+                         q_vec[0], q_vec[1], q_vec[2], q_vec[3]);
+            std::fprintf(stderr, "attn_ctx[0][0..4] = %.6f %.6f %.6f %.6f\n",
+                         q_h[0], q_h[1], q_h[2], q_h[3]);
         }
     }
 
