@@ -20,18 +20,25 @@ strictly as a binary label generator in training (M1+); no GPL source is read.
 | M0 | Board core: 128-byte `PositionState`, PEXT/magic/classical movegen, perft to d6, UCI, symbolic draw gates | **done** |
 | M1 | Lichess DB + Stockfish-labeled distillation; first policy-only Elo | **first numbers live** (see below) |
 
-## First results (research map, v0)
+## Results (research map)
 
-| Engine | Conditions | Result |
-|--------|-----------|--------|
-| BC-v0 (6.4M params, 2 epochs × 20M Lichess positions) | SPRT 200 games vs SF16 `go depth 1`, openings from own shard | **51.75% (74W/59D/75L) ≈ SF16-d1 level** |
+| Engine | Conditions | vs SF16-d1 | vs SF16-d2 |
+|--------|-----------|------------|------------|
+| BC-v0 (6.4M params, 20M Lichess positions) | SPRT 200 games, 60+6, own EPD book | **−83 ± 33 (38.25%)** | **−72 ± 37 (39.75%)** |
+| Distilled-1M (SF depth-16 labels, 1M positions) | same conditions | −315 (14%) | −330 (13%) |
 
-Provenance: `sprt/bc-v0.pgn` + phase-C logs; opponent pool SF16.1 fixed
+**H1 verdict (negative):** SF depth-16 label distillation degrades
+searchless play by ~309 Elo vs BC. The model converges on SF labels
+(policy loss 0.62) but plays far worse — depth-16 teacher moves require
+a precision that pattern-matching without search cannot deliver.
+
+**BC scaling next:** more Lichess months (60M+ positions), same
+architecture. Distillation documented; not pursued at this scale.
+
+Provenance: `sprt/*.pgn` + phase-C2/H1 logs; opponent pool SF16.1 fixed
 depth, 60+6 clock, 2000-position EPD openings sampled from the training
-shard. Distilled (1M/5M SF-label) numbers pending.
-| M2 | INT8 AVX-512 VNNI inference; dot-product policy head; Engine A complete | — |
-| M3 | Architecture ablations (the research map) | — |
-| M4 | Engine B: micro-eval quiescence verification layer, node-budget curve | — |
+shard. Same binary, same openings, same conditions for all engines.
+
 
 ## Build
 
