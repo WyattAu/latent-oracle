@@ -32,7 +32,21 @@ searchless play by ~309 Elo vs BC. The model converges on SF labels
 (policy loss 0.62) but plays far worse — depth-16 teacher moves require
 a precision that pattern-matching without search cannot deliver.
 
-**BC scaling next:** more Lichess months (60M+ positions), same
+**H1 + data-source ablation (complete):**
+
+| Training data source | Size | vs SF16-d1 | Finding |
+|---|---|---|---|
+| **Human played moves** ✅ | 20M | **−83 ± 33** | Best — robust to 0-ply imprecision |
+| Lc0 self-play (3600 Elo) | 3M | −291 ± 46 | Better than SF labels but worse than human |
+| SF depth-16 labels | 1M | −436 | Worst — search-precision trap |
+
+**Key finding:** for searchless chess engines, human played moves are
+better training data than any engine's moves regardless of engine
+strength. 3600-Elo self-play data outperforms SF depth-16 labels by
+~145 Elo, but both underperform human BC by ~200+ Elo. Engine moves
+require search precision that 0-ply inference cannot replicate.
+
+**BC scaling:** more Lichess months (60M+ positions), same
 architecture. Distillation documented; not pursued at this scale.
 
 Provenance: `sprt/*.pgn` + phase-C2/H1 logs; opponent pool SF16.1 fixed
