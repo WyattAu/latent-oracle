@@ -9,9 +9,26 @@ namespace lo::nn {
 namespace {
 
 constexpr std::uint32_t kMagic = 0x574E4F4C;  // "LONW" LE
-constexpr std::uint32_t kVersion = 1;
+constexpr std::uint32_t kVersion1 = 1;
+constexpr std::uint32_t kVersion2GAB = 2;
 constexpr float kLnEps = 1e-5f;
 constexpr int kMaxD = 1024;
+
+// Square-relation bucket ids, matching trainer/model.py::gab_bucket_table:
+// 0 same, 1 knight, 2 file, 3 rank, 4 diag, 5 cheb1, 6 cheb2, 7 other.
+std::uint8_t gab_bucket(int s, int t) {
+    const int fs = s % 8, rs = s / 8, ft = t % 8, rt = t / 8;
+    const int df = std::abs(fs - ft), dr = std::abs(rs - rt);
+    if (s == t) return 0;
+    if ((df == 1 && dr == 2) || (df == 2 && dr == 1)) return 1;
+    if (fs == ft) return 2;
+    if (rs == rt) return 3;
+    if (df == dr) return 4;
+    const int cheb = df > dr ? df : dr;
+    if (cheb == 1) return 5;
+    if (cheb == 2) return 6;
+    return 7;
+}
 
 inline float gelu(float x) {
     return 0.5f * x * (1.0f + std::erf(x * 0.70710678118654752f));
@@ -61,87 +78,12 @@ thread_local float ctx[64 * kMaxD];
 thread_local float vec[kMaxD];
 thread_local float wide[4096];
 thread_local float att[64 * 64];
+thread_local float hp_buf[64 * kMaxD];
 
 }  // namespace
 
-std::optional<Net> Net::load(const std::string& path) {
-    std::ifstream f(path, std::ios::binary);
-    if (!f) return std::nullopt;
-
-    std::uint32_t magic = 0, version = 0;
-    NetConfig cfg;
-    f.read(reinterpret_cast<char*>(&magic), 4);
-    f.read(reinterpret_cast<char*>(&version), 4);
-    f.read(reinterpret_cast<char*>(&cfg.d), 4);
-    f.read(reinterpret_cast<char*>(&cfg.layers), 4);
-    f.read(reinterpret_cast<char*>(&cfg.heads), 4);
-    f.read(reinterpret_cast<char*>(&cfg.dff), 4);
-    f.read(reinterpret_cast<char*>(&cfg.dpol), 4);
-    if (!f || magic != kMagic || version != kVersion) return std::nullopt;
-    if (cfg.d > kMaxD || cfg.dff > 4096) return std::nullopt;
-
-    Net net;
-    net.cfg_ = cfg;
-    const std::size_t d = cfg.d, dff = cfg.dff, dpol = cfg.dpol;
-
-    const std::size_t per_layer = 2 * d                               // ln1
-                                  + 4 * (d * d + d)                   // q k v o
-                                  + 2 * d                             // ln2
-                                  + dff * d + dff + d * dff + d;      // mlp
-    const std::size_t total = (15 + 64 + 2) * d + per_layer * cfg.layers
-                              + 2 * d                                 // lnP
-                              + 2 * (dpol * d + dpol)                 // from/to
-                              + 4 * d + 4                             // promo
-                              + 2 * d                                 // lnV
-                              + 128 * d + 128 + 3 * 128 + 3;          // value
-
-    net.w_.resize(total);
-    f.read(reinterpret_cast<char*>(net.w_.data()), static_cast<std::streamsize>(total * 4));
-    if (!f) return std::nullopt;
-
-    std::size_t off = 0;
-    net.piece_emb_ = off; off += 15 * d;
-    net.square_emb_ = off; off += 64 * d;
-    net.side_emb_ = off; off += 2 * d;
-    net.layer_off_.resize(cfg.layers);
-    for (std::uint32_t l = 0; l < cfg.layers; ++l) {
-        net.layer_off_[l] = off;
-        off += per_layer;
-    }
-    net.lnP_ = off; off += 2 * d;
-    net.wfrom_ = off; off += dpol * d + dpol;
-    net.bfrom_ = net.wfrom_ + dpol * d;
-    net.wto_ = off; off += dpol * d + dpol;
-    net.bto_ = net.wto_ + dpol * d;
-    net.promoW_ = off; off += 4 * d + 4;
-    net.lnV_ = off; off += 2 * d;
-    net.v1W_ = off; off += 128 * d + 128;
-    net.v2W_ = off; off += 3 * 128 + 3;
-    return net;
-}
-
-NetOutput Net::evaluate(const PositionState& pos) const {
-    const int d = static_cast<int>(cfg_.d);
+void Net::run_trunk(int d, int heads, int hd, float scale) const {
     const int dff = static_cast<int>(cfg_.dff);
-    const int heads = static_cast<int>(cfg_.heads);
-    const int hd = d / heads;
-    const float scale = 1.0f / std::sqrt(static_cast<float>(hd));
-
-    // tokens: piece code per square (1-6 white, 9-14 black, shard convention)
-    for (int sq = 0; sq < 64; ++sq) {
-        std::uint8_t code = 0;
-        for (int t = 0; t < PIECE_NB; ++t) {
-            if (pos.pieces[WHITE][t] & SQUARE_BB[sq]) code = static_cast<std::uint8_t>(t + 1);
-            if (pos.pieces[BLACK][t] & SQUARE_BB[sq]) code = static_cast<std::uint8_t>(t + 9);
-        }
-        for (int i = 0; i < d; ++i) {
-            x_buf()[static_cast<std::size_t>(sq) * d + i] =
-                w_[piece_emb_ + static_cast<std::size_t>(code) * d + i] +
-                w_[square_emb_ + static_cast<std::size_t>(sq) * d + i] +
-                w_[side_emb_ + static_cast<std::size_t>(pos.side_to_move) * d + i];
-        }
-    }
-
     for (std::uint32_t l = 0; l < cfg_.layers; ++l) {
         const float* base = w_.data() + layer_off_[l];
         const float* ln1g = base;
@@ -170,15 +112,18 @@ NetOutput Net::evaluate(const PositionState& pos) const {
         }
         // attention: per-head dot products, softmax per head-row, and a
         // per-head value slice for the context (this is the part that makes
-        // multi-head attention multi-head)
+        // multi-head attention multi-head). GAB (blob v2) adds a learned
+        // per-head bias keyed on the square-pair relation bucket.
+        const bool use_gab = !gab_table_.empty();
         for (int head = 0; head < heads; ++head) {
+            const float* gt = use_gab ? &gab_table_[static_cast<std::size_t>(head) * 8] : nullptr;
             for (int s = 0; s < 64; ++s) {
                 const float* qp = &q_buf[s * d + head * hd];
                 for (int t = 0; t < 64; ++t) {
                     const float* kp = &k_buf[t * d + head * hd];
                     float dot = 0.0f;
                     for (int i = 0; i < hd; ++i) dot += qp[i] * kp[i];
-                    att[s * 64 + t] = dot * scale;
+                    att[s * 64 + t] = dot * scale + (gt ? gt[gab_bucket(s, t)] : 0.0f);
                 }
                 softmax_inplace(&att[s * 64], 64);
                 for (int i = 0; i < hd; ++i) {
@@ -203,23 +148,15 @@ NetOutput Net::evaluate(const PositionState& pos) const {
             for (int i = 0; i < d; ++i) x_buf()[s * d + i] += vec[i];
         }
     }  // layer loop
+}
 
-    // heads
-    NetOutput out{};
-    // Per-token policy LN, then pool the LN'd tokens (architecture contract:
-    // python pools lnP(x), not raw x).
-    static thread_local float hp_buf[64 * kMaxD];
-    float pooled[kMaxD], hv[kMaxD], vhid[128];
+void Net::policy_scores(float* out_scores) const {
+    const int d = static_cast<int>(cfg_.d);
+    const int dpol = static_cast<int>(cfg_.dpol);
+    // Per-token policy LN into hp_buf (architecture contract: python pools
+    // lnP(x), not raw x).
     for (int sq = 0; sq < 64; ++sq)
         layernorm(&x_buf()[sq * d], w_.data() + lnP_, w_.data() + lnP_ + d, &hp_buf[sq * d], d);
-    for (int i = 0; i < d; ++i) {
-        float s = 0.0f;
-        for (int sq = 0; sq < 64; ++sq) s += hp_buf[sq * d + i];
-        pooled[i] = s / 64.0f;
-    }
-    layernorm(pooled, w_.data() + lnV_, w_.data() + lnV_ + d, hv, d);
-
-    const int dpol = static_cast<int>(cfg_.dpol);
     // ef/et reuse the q/k scratch (d-sized per token, dpol <= d)
     for (int sq = 0; sq < 64; ++sq) {
         linear(&hp_buf[sq * d], w_.data() + wfrom_, w_.data() + bfrom_, &q_buf[sq * d], d, dpol);
@@ -229,8 +166,55 @@ NetOutput Net::evaluate(const PositionState& pos) const {
         for (int v = 0; v < 64; ++v) {
             float dot = 0.0f;
             for (int i = 0; i < dpol; ++i) dot += q_buf[u * d + i] * k_buf[v * d + i];
-            out.scores[u * 64 + v] = dot / std::sqrt(static_cast<float>(dpol));
+            out_scores[u * 64 + v] = dot / std::sqrt(static_cast<float>(dpol));
         }
+}
+
+NetOutput Net::evaluate(const PositionState& pos) const {
+    const int d = static_cast<int>(cfg_.d);
+    const int heads = static_cast<int>(cfg_.heads);
+    const int hd = d / heads;
+    const float scale = 1.0f / std::sqrt(static_cast<float>(hd));
+
+    // tokens: piece code per square (1-6 white, 9-14 black, shard convention)
+    for (int sq = 0; sq < 64; ++sq) {
+        std::uint8_t code = 0;
+        for (int t = 0; t < PIECE_NB; ++t) {
+            if (pos.pieces[WHITE][t] & SQUARE_BB[sq]) code = static_cast<std::uint8_t>(t + 1);
+            if (pos.pieces[BLACK][t] & SQUARE_BB[sq]) code = static_cast<std::uint8_t>(t + 9);
+        }
+        for (int i = 0; i < d; ++i) {
+            x_buf()[static_cast<std::size_t>(sq) * d + i] =
+                w_[piece_emb_ + static_cast<std::size_t>(code) * d + i] +
+                w_[square_emb_ + static_cast<std::size_t>(sq) * d + i] +
+                w_[side_emb_ + static_cast<std::size_t>(pos.side_to_move) * d + i];
+        }
+    }
+
+    // Trunk pass 1 (recycling: earlier passes are weaker predictors whose
+    // contrast with the final pass guides selection — LoopCD).
+    run_trunk(d, heads, hd, scale);
+    float scores1[64 * 64];
+    const bool loopcd = recycle_ > 1 && loopcd_alpha_ != 0.0f;
+    if (loopcd) policy_scores(scores1);
+    for (int pass = 2; pass <= recycle_; ++pass) run_trunk(d, heads, hd, scale);
+
+    // heads
+    NetOutput out{};
+    policy_scores(out.scores);
+    if (loopcd) {
+        for (int i = 0; i < 64 * 64; ++i)
+            out.scores[i] += loopcd_alpha_ * (out.scores[i] - scores1[i]);
+    }
+
+    float pooled[kMaxD], hv[kMaxD], vhid[128];
+    for (int i = 0; i < d; ++i) {
+        float s = 0.0f;
+        for (int sq = 0; sq < 64; ++sq) s += hp_buf[sq * d + i];
+        pooled[i] = s / 64.0f;
+    }
+    layernorm(pooled, w_.data() + lnV_, w_.data() + lnV_ + d, hv, d);
+
     linear(pooled, w_.data() + promoW_, w_.data() + promoW_ + 4 * d, out.promo_logit, d, 4);
 
     linear(hv, w_.data() + v1W_, w_.data() + v1W_ + 128 * d, vhid, d, 128);
@@ -239,6 +223,71 @@ NetOutput Net::evaluate(const PositionState& pos) const {
     softmax_inplace(out.wdl, 3);
     return out;
 }
+
+std::optional<Net> Net::load(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return std::nullopt;
+
+    std::uint32_t magic = 0, version = 0;
+    NetConfig cfg;
+    f.read(reinterpret_cast<char*>(&magic), 4);
+    f.read(reinterpret_cast<char*>(&version), 4);
+    f.read(reinterpret_cast<char*>(&cfg.d), 4);
+    f.read(reinterpret_cast<char*>(&cfg.layers), 4);
+    f.read(reinterpret_cast<char*>(&cfg.heads), 4);
+    f.read(reinterpret_cast<char*>(&cfg.dff), 4);
+    f.read(reinterpret_cast<char*>(&cfg.dpol), 4);
+    if (!f || magic != kMagic) return std::nullopt;
+    if (version != kVersion1 && version != kVersion2GAB) return std::nullopt;
+    if (cfg.d > kMaxD || cfg.dff > 4096) return std::nullopt;
+
+    Net net;
+    net.cfg_ = cfg;
+    const std::size_t d = cfg.d, dff = cfg.dff, dpol = cfg.dpol;
+
+    const std::size_t per_layer = 2 * d                               // ln1
+                                  + 4 * (d * d + d)                   // q k v o
+                                  + 2 * d                             // ln2
+                                  + dff * d + dff + d * dff + d;      // mlp
+    const std::size_t total = (15 + 64 + 2) * d + per_layer * cfg.layers
+                              + 2 * d                                 // lnP
+                              + 2 * (dpol * d + dpol)                 // from/to
+                              + 4 * d + 4                             // promo
+                              + 2 * d                                 // lnV
+                              + 128 * d + 128 + 3 * 128 + 3;          // value
+
+    net.w_.resize(total);
+    f.read(reinterpret_cast<char*>(net.w_.data()), static_cast<std::streamsize>(total * 4));
+    if (!f) return std::nullopt;
+    if (version == kVersion2GAB) {
+        // GAB table appended after the standard stream (v1 is a strict prefix)
+        net.gab_table_.resize(cfg.heads * 8);
+        f.read(reinterpret_cast<char*>(net.gab_table_.data()),
+               static_cast<std::streamsize>(net.gab_table_.size() * 4));
+        if (!f) return std::nullopt;
+    }
+
+    std::size_t off = 0;
+    net.piece_emb_ = off; off += 15 * d;
+    net.square_emb_ = off; off += 64 * d;
+    net.side_emb_ = off; off += 2 * d;
+    net.layer_off_.resize(cfg.layers);
+    for (std::uint32_t l = 0; l < cfg.layers; ++l) {
+        net.layer_off_[l] = off;
+        off += per_layer;
+    }
+    net.lnP_ = off; off += 2 * d;
+    net.wfrom_ = off; off += dpol * d + dpol;
+    net.bfrom_ = net.wfrom_ + dpol * d;
+    net.wto_ = off; off += dpol * d + dpol;
+    net.bto_ = net.wto_ + dpol * d;
+    net.promoW_ = off; off += 4 * d + 4;
+    net.lnV_ = off; off += 2 * d;
+    net.v1W_ = off; off += 128 * d + 128;
+    net.v2W_ = off; off += 3 * 128 + 3;
+    return net;
+}
+
 
 float* Net::x_buf() {
     static thread_local float buf[64 * kMaxD];

@@ -58,6 +58,8 @@ struct Session {
     std::vector<std::uint64_t> history;  // Zobrist keys, root position included
     std::string weights_path;            // empty => PST fallback
     std::optional<lo::nn::Net> net;
+    int recycle = 1;                     // RecyclePasses (looped trunk)
+    float loopcd_alpha = 0.0f;           // LoopCD contrastive-decoding strength
 };
 
 // Applies a sequence of UCI move tokens to the session root. A token that
@@ -126,6 +128,8 @@ void handle_line(Session& s, const std::string& line) {
         std::cout << "id name latent-oracle 0.1.0\n";
         std::cout << "id author Wyatt Au\n";
         std::cout << "option name WeightsFile type string default\n";
+        std::cout << "option name RecyclePasses type spin default 1 min 1 max 8\n";
+        std::cout << "option name LoopCDAlpha type string default 0.0\n";
         std::cout << "uciok\n" << std::flush;
     } else if (cmd == "isready") {
         std::cout << "readyok\n" << std::flush;
@@ -146,8 +150,19 @@ void handle_line(Session& s, const std::string& line) {
             } else if (name == "WeightsFile") {
                 s.weights_path = line.substr(vpos + 7);
                 s.net = lo::nn::Net::load(s.weights_path);
+                if (s.net) s.net->set_inference(s.recycle, s.loopcd_alpha);
                 if (!s.net)
                     std::cout << "info string cannot load weights: " << s.weights_path << "\n" << std::flush;
+            } else if (name == "RecyclePasses") {
+                try {
+                    s.recycle = std::max(1, std::stoi(line.substr(vpos + 7)));
+                    if (s.net) s.net->set_inference(s.recycle, s.loopcd_alpha);
+                } catch (...) {}
+            } else if (name == "LoopCDAlpha") {
+                try {
+                    s.loopcd_alpha = std::stof(line.substr(vpos + 7));
+                    if (s.net) s.net->set_inference(s.recycle, s.loopcd_alpha);
+                } catch (...) {}
             }
         }
     } else if (cmd == "position") {

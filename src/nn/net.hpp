@@ -38,10 +38,23 @@ class Net {
 
     NetOutput evaluate(const PositionState& pos) const;
 
+    // Inference-time recycling (looped trunk) + LoopCD contrastive decoding:
+    // pass 1 scores S1 are kept, the trunk runs `recycle` times total, and the
+    // final scores become S_R + loopcd_alpha * (S_R - S1). recycle = 1 (the
+    // default) reproduces the plain single pass bit-for-bit. Training-free
+    // strength knob (LoopCD, arXiv 2610.02185).
+    void set_inference(int recycle, float loopcd_alpha) {
+        recycle_ = recycle < 1 ? 1 : recycle;
+        loopcd_alpha_ = loopcd_alpha;
+    }
+
     const NetConfig& config() const { return cfg_; }
 
   private:
     static float* x_buf();  // per-call token scratch (64 x d)
+
+    void run_trunk(int d, int heads, int hd, float scale) const;
+    void policy_scores(float* out_scores) const;  // uses hp_buf scratch
 
     NetConfig cfg_{};
     std::vector<float> w_;  // all weights, contiguous
@@ -50,6 +63,10 @@ class Net {
     std::vector<std::size_t> layer_off_;  // per-layer base offset
     std::size_t lnP_ = 0, wfrom_ = 0, bfrom_ = 0, wto_ = 0, bto_ = 0, promoW_ = 0, promoB_ = 0;
     std::size_t lnV_ = 0, v1W_ = 0, v1B_ = 0, v2W_ = 0, v2B_ = 0;
+    // blob v2 (GAB): learned per-head bias over square-relation buckets
+    std::vector<float> gab_table_;  // heads * 8; empty when absent
+    int recycle_ = 1;
+    float loopcd_alpha_ = 0.0f;
 };
 
 }  // namespace lo::nn
