@@ -23,9 +23,9 @@
 |---|---|---|---|---|
 | 1 | Action-value (AV) prediction target | Ruoss et al. 2024 (ChessBench) | **ADOPT** — highest impact | P0 |
 | 2 | Decisiveness-weighted policy loss | Lc0 practice; H1 failure analysis | **ADOPTED** (implemented `3ce2f02`) | P0 done |
-| 3 | Geometric Attention Bias (GAB) | Chessformer, arXiv 2605 (May 2026) | **ADOPT** — cheap, chess-native | P1 |
-| 4 | Recycling + LoopCD contrastive decoding | LoopCD, arXiv 2610.02185 (Oct 2026) | **ADOPT** — training-free gain | P1 |
-| 5 | Muon optimizer (hidden) + AdamW (embed/head) | Muon line of work 2024–2026 | **ADOPT** — faster convergence at small scale | P1 |
+| 3 | Geometric Attention Bias (GAB) | Chessformer, arXiv 2605 (May 2026) | **IMPLEMENTED** (trainer `--gab` blob v2 + engine loader, commit b351076/38d315f) | P1 done |
+| 4 | Recycling + LoopCD contrastive decoding | LoopCD, arXiv 2610.02185 (Oct 2026) | **IMPLEMENTED** (engine `RecyclePasses`/`LoopCDAlpha`, parity-verified vs Python) | P1 done |
+| 5 | Muon optimizer (hidden) + AdamW (embed/head) | Muon line of work 2024–2026 | **IMPLEMENTED** (trainer `--optimizer muon`, AMP joint wrapper) | P1 done |
 | 6 | Warm start + opponent curriculum + keep-best | Gold-standard lightweight study (Jul 2026) | **ADOPT** — validated across games | P1 |
 | 7 | DiffuSearch denoising inference | arXiv:2502.19805 | **PILOT** — biggest single gain but new paradigm | P2 |
 | 8 | Lookahead attention | arXiv 2305 (2023) | **PILOT** — elegant, unproven at our scale | P3 |
