@@ -14,6 +14,10 @@
 | [RESEARCH-TRAINING.md](RESEARCH-TRAINING.md) | Lightweight-agent gold-standard study, decisiveness weighting, Muon optimizer, distillation, curriculum |
 | [RESEARCH-INFERENCE.md](RESEARCH-INFERENCE.md) | LoopCD, test-time training, recycling, DiffuSearch inference |
 | [RESEARCH-HYPERPARAMS.md](RESEARCH-HYPERPARAMS.md) | Concrete hyperparameter recommendations for our 6.4M model |
+| [RESEARCH-OPTIMIZATION2.md](RESEARCH-OPTIMIZATION2.md) | EMA/SWA weight averaging, loss refinements, QAT, self-play fine-tuning, SAM |
+| [RESEARCH-DATA.md](RESEARCH-DATA.md) | File-mirror augmentation, curation, input features, labeling economics |
+| [RESEARCH-HPO.md](RESEARCH-HPO.md) | ASHA/Bayes search methodology, concrete budgeted HPO plan |
+| [RESEARCH-EVAL.md](RESEARCH-EVAL.md) | SPRT power analysis, fast triage, proxy metrics, promotion policy |
 | [SPEC-OPTIMAL-MODEL.md](SPEC-OPTIMAL-MODEL.md) | Earlier synthesis: AV targets, pipeline, compute budget |
 | [SPEC-DIFFUSION.md](SPEC-DIFFUSION.md) | Diffusion tokenizer/training/inference spec |
 
@@ -48,9 +52,10 @@
 
 1. **AV predictor** (P0): retrain on labeled_5m.shard with AV-style decisiveness
    weighting → SPRT. This is the Ruoss et al. recipe at our scale.
-2. **GAB attention** (P1): replace learned absolute positional embedding with
-   geometric attention bias (see RESEARCH-ARCHITECTURES.md §1.2 for the formula).
-3. **LoopCD at inference** (P1): engine flag `RecyclePasses=k` + contrastive
-   policy between last and first pass. Zero retraining needed once weights exist.
-4. **Muon** (P1): swap optimizer in trainer behind `--optimizer muon`.
-5. **DiffuSearch pilot** (P2): separate 1-day experiment after the above mature.
+2. ~~GAB attention~~ **IMPLEMENTED** (trainer `--gab` + engine blob v2 loader).
+3. ~~LoopCD at inference~~ **IMPLEMENTED** (engine `RecyclePasses`/`LoopCDAlpha`).
+4. ~~Muon~~ **IMPLEMENTED** (trainer `--optimizer muon`).
+5. **EMA weights + move-matching eval + file-mirror aug** (round-2 round: see
+   RESEARCH-OPTIMIZATION2.md / RESEARCH-DATA.md) — cheap trainer wins.
+6. **HPO stage A/B** per RESEARCH-HPO.md once the current chain lands.
+7. **DiffuSearch pilot** (P2): separate 1-day experiment after the above mature.
