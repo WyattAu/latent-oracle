@@ -18,6 +18,8 @@
 | [RESEARCH-DATA.md](RESEARCH-DATA.md) | File-mirror augmentation, curation, input features, labeling economics |
 | [RESEARCH-HPO.md](RESEARCH-HPO.md) | ASHA/Bayes search methodology, concrete budgeted HPO plan |
 | [RESEARCH-EVAL.md](RESEARCH-EVAL.md) | SPRT power analysis, fast triage, proxy metrics, promotion policy |
+| [RESEARCH-RL.md](RESEARCH-RL.md) | GRPO from SF rewards, Faynt precedent (10M + RL), anchored self-play, QTPT Q-targets |
+| [RESEARCH-REPRESENTATIONS.md](RESEARCH-REPRESENTATIONS.md) | Distributional values, auxiliary tasks (JEPA-lite, reply prediction), trunk families |
 | [SPEC-OPTIMAL-MODEL.md](SPEC-OPTIMAL-MODEL.md) | Earlier synthesis: AV targets, pipeline, compute budget |
 | [SPEC-DIFFUSION.md](SPEC-DIFFUSION.md) | Diffusion tokenizer/training/inference spec |
 
@@ -51,11 +53,14 @@
 ## Priority for next build cycle
 
 1. **AV predictor** (P0): retrain on labeled_5m.shard with AV-style decisiveness
-   weighting → SPRT. This is the Ruoss et al. recipe at our scale.
+   weighting + two-hot eval targets + JEPA-lite/reply aux heads (RESEARCH-REPRESENTATIONS.md).
 2. ~~GAB attention~~ **IMPLEMENTED** (trainer `--gab` + engine blob v2 loader).
 3. ~~LoopCD at inference~~ **IMPLEMENTED** (engine `RecyclePasses`/`LoopCDAlpha`).
 4. ~~Muon~~ **IMPLEMENTED** (trainer `--optimizer muon`).
-5. **EMA weights + move-matching eval + file-mirror aug** (round-2 round: see
-   RESEARCH-OPTIMIZATION2.md / RESEARCH-DATA.md) — cheap trainer wins.
-6. **HPO stage A/B** per RESEARCH-HPO.md once the current chain lands.
-7. **DiffuSearch pilot** (P2): separate 1-day experiment after the above mature.
+5. ~~EMA weights + move-matching eval + file-mirror aug~~ **IMPLEMENTED**.
+6. **RL-GRPO stage** (RESEARCH-RL.md): SF-reward group-relative policy
+   optimization on top of the AV net — the biggest remaining lever per the
+   Faynt 10M-param precedent. Build after AV lands.
+7. **HPO stage A/B** per RESEARCH-HPO.md once the current chain lands.
+8. **DiffuSearch pilot**: trainer+inference scaffold IMPLEMENTED
+   (train_diffusion.py/infer_diffusion.py); GPU run queued behind the chain.
