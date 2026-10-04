@@ -27,7 +27,10 @@ for the whole bundle.
 
 ```
 header (unchanged 28 B): magic "LONW", version = 3, d, layers, heads, dff, dpol
-tensor stream: v1 layout (unchanged prefix, strict prefix property kept)
+tensor stream: v1 layout prefix holds UP TO the value-head tail (V2) —
+the v3 material-bucketed V2 is 8x larger, so the strict byte-prefix
+property is "everything before V2"; consumers read version-3 tails after
+the shared prefix. v1/v2 blobs remain fully loadable by a v3 reader.
   + [v2] gab_table (heads*8 f32)
   + [v3] castle_emb (6*d)      # K,Q,k,q rights as 4 one-hot + none/all  -> 6 rows
   + [v3] ep_emb (9*d)          # ep file or none

@@ -16,7 +16,9 @@ namespace lo::nn {
 namespace {
 
 constexpr std::uint32_t kMagic = 0x57514F4C;  // "LOQW" LE
-constexpr std::uint32_t kVersion = 1;
+constexpr std::uint32_t kVersion1 = 1;
+constexpr std::uint32_t kVersion2GAB = 2;
+constexpr std::uint32_t kVersion3 = 3;
 constexpr float kLnEps = 1e-5f;
 constexpr int kMaxD = 1024;
 constexpr int kMaxDff = 4096;
@@ -24,6 +26,21 @@ constexpr int kMaxLayers = 32;
 
 inline float gelu(float x) {
     return 0.5f * x * (1.0f + std::erf(x * 0.70710678118654752f));
+}
+
+// Square-relation bucket ids (matches net.cpp / trainer gab_bucket_table).
+std::uint8_t gab_bucket(int s, int t) {
+    const int fs = s % 8, rs = s / 8, ft = t % 8, rt = t / 8;
+    const int df = std::abs(fs - ft), dr = std::abs(rs - rt);
+    if (s == t) return 0;
+    if ((df == 1 && dr == 2) || (df == 2 && dr == 1)) return 1;
+    if (fs == ft) return 2;
+    if (rs == rt) return 3;
+    if (df == dr) return 4;
+    const int cheb = df > dr ? df : dr;
+    if (cheb == 1) return 5;
+    if (cheb == 2) return 6;
+    return 7;
 }
 
 void layernorm(const float* x, const float* g, const float* b, float* y, int n) {
@@ -143,7 +160,9 @@ std::optional<NetQ> NetQ::load(const std::string& path) {
     f.read(reinterpret_cast<char*>(&cfg.heads), 4);
     f.read(reinterpret_cast<char*>(&cfg.dff), 4);
     f.read(reinterpret_cast<char*>(&cfg.dpol), 4);
-    if (!f || magic != kMagic || version != kVersion) return std::nullopt;
+    if (!f || magic != kMagic) return std::nullopt;
+    if (version != kVersion1 && version != kVersion2GAB && version != kVersion3)
+        return std::nullopt;
     if (cfg.d > kMaxD || cfg.layers > kMaxLayers || cfg.dff > kMaxDff) return std::nullopt;
 
     NetQ net;
@@ -204,6 +223,24 @@ std::optional<NetQ> NetQ::load(const std::string& path) {
     rd_ql(d, 128);                                           // V1
     net.v2_ = rd_f32(3 * 128 + 3);
 
+    if (version >= kVersion2GAB) {
+        net.gab_table_.resize(cfg.heads * 8);
+        f.read(reinterpret_cast<char*>(net.gab_table_.data()),
+               static_cast<std::streamsize>(net.gab_table_.size() * 4));
+        if (!f) return std::nullopt;
+    }
+    if (version >= kVersion3) {
+        net.v3_ = true;
+        net.castle_emb_ = rd_f32(16 * d);
+        net.ep_emb_ = rd_f32(9 * d);
+        net.king_bucket_emb_ = rd_f32(16 * d);
+        net.rating_emb_ = rd_f32(16 * d);
+        net.hist_emb_ = rd_f32(3 * 2 * d);
+        net.hist_gate_ = rd_f32(3);
+        net.v3_v2W_ = rd_f32(3 * 8 * 128);
+        net.v3_v2B_ = rd_f32(8 * 3);
+        if (!f) return std::nullopt;
+    }
     if (!f) return std::nullopt;
     return net;
 }
@@ -301,7 +338,19 @@ NetQOutput NetQ::evaluate(const PositionState& pos) const {
 
     qlinear(q_hv, ql_[v1], q_vhid);
     for (int i = 0; i < 128; ++i) q_vhid[i] = gelu(q_vhid[i]);
-    linear_f32(q_vhid, f_.data() + v2_, f_.data() + v2_ + 3 * 128, out.wdl, 128, 3);
+    if (v3_) {
+        const int pc = static_cast<int>(popcount(occupancy_all(pos))) - 2;
+        const int mb = std::min(7, std::max(0, pc * 8 / 30));
+        const float* W = f_.data() + v3_v2W_ + static_cast<std::size_t>(mb) * 3 * 128;
+        const float* B = f_.data() + v3_v2B_ + static_cast<std::size_t>(mb) * 3;
+        for (int j = 0; j < 3; ++j) {
+            float acc = B[j];
+            for (int i = 0; i < 128; ++i) acc += q_vhid[i] * W[j * 128 + i];
+            out.wdl[j] = acc;
+        }
+    } else {
+        linear_f32(q_vhid, f_.data() + v2_, f_.data() + v2_ + 3 * 128, out.wdl, 128, 3);
+    }
     softmax_inplace(out.wdl, 3);
     return out;
 }

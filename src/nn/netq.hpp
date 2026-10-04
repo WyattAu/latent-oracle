@@ -67,6 +67,13 @@ class NetQ {
     std::size_t lnP_ = 0, promo_ = 0, lnV_ = 0, v2_ = 0;
     std::size_t ql_from_ = 0;  // ql_ index of layer 0's Wq
 
+    // blob v2/v3 (SPEC-BLOB-V3.md): GAB bias table + v3 tail (all fp32).
+    std::vector<float> gab_table_;
+    std::size_t castle_emb_ = 0, ep_emb_ = 0, king_bucket_emb_ = 0, rating_emb_ = 0;
+    std::size_t hist_emb_ = 0, hist_gate_ = 0;
+    std::size_t v3_v2W_ = 0, v3_v2B_ = 0;
+    bool v3_ = false;
+
     static float* x_buf();
 };
 

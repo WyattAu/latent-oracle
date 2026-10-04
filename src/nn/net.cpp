@@ -11,6 +11,7 @@ namespace {
 constexpr std::uint32_t kMagic = 0x574E4F4C;  // "LONW" LE
 constexpr std::uint32_t kVersion1 = 1;
 constexpr std::uint32_t kVersion2GAB = 2;
+constexpr std::uint32_t kVersion3 = 3;
 constexpr float kLnEps = 1e-5f;
 constexpr int kMaxD = 1024;
 
@@ -191,6 +192,24 @@ NetOutput Net::evaluate(const PositionState& pos) const {
         }
     }
 
+    if (v3_) {
+        // SPEC-BLOB-V3 inputs: castling mask, ep file, king bucket, rating 0.
+        // History is not plumbed yet; its tail loads zero-init (no-op).
+        const float* ce = w_.data() + castle_emb_ + static_cast<std::size_t>(pos.castling) * d;
+        const int ep_idx =
+            (pos.ep_square == NO_EP || pos.ep_square >= 64) ? 0 : 1 + (pos.ep_square % 8);
+        const float* ee = w_.data() + ep_emb_ + static_cast<std::size_t>(ep_idx) * d;
+        int ksq = 0;
+        for (int sq = 0; sq < 64; ++sq)
+            if (pos.pieces[pos.side_to_move][KING] & SQUARE_BB[sq]) ksq = sq;
+        const int kb = (ksq / 8 / 4) * 4 + (ksq % 8 / 4);
+        const float* ke = w_.data() + king_bucket_emb_ + static_cast<std::size_t>(kb) * d;
+        const float* re = w_.data() + rating_emb_;  // bucket 0
+        for (int sq = 0; sq < 64; ++sq)
+            for (int i = 0; i < d; ++i)
+                x_buf()[static_cast<std::size_t>(sq) * d + i] += ce[i] + ee[i] + ke[i] + re[i];
+    }
+
     // Trunk pass 1 (recycling: earlier passes are weaker predictors whose
     // contrast with the final pass guides selection — LoopCD).
     run_trunk(d, heads, hd, scale);
@@ -219,7 +238,21 @@ NetOutput Net::evaluate(const PositionState& pos) const {
 
     linear(hv, w_.data() + v1W_, w_.data() + v1W_ + 128 * d, vhid, d, 128);
     for (int i = 0; i < 128; ++i) vhid[i] = gelu(vhid[i]);
-    linear(vhid, w_.data() + v2W_, w_.data() + v2W_ + 3 * 128, out.wdl, 128, 3);
+    if (v3_) {
+        // material bucket: non-king piece count, 8 buckets (trainer
+        // material_bucket: min(7, pc*8/30))
+        const int pc = static_cast<int>(popcount(occupancy_all(pos))) - 2;
+        const int mb = std::min(7, std::max(0, pc * 8 / 30));
+        const float* W = w_.data() + v3_v2W_ + static_cast<std::size_t>(mb) * 3 * 128;
+        const float* B = w_.data() + v3_v2B_ + static_cast<std::size_t>(mb) * 3;
+        for (int j = 0; j < 3; ++j) {
+            float acc = B[j];
+            for (int i = 0; i < 128; ++i) acc += vhid[i] * W[j * 128 + i];
+            out.wdl[j] = acc;
+        }
+    } else {
+        linear(vhid, w_.data() + v2W_, w_.data() + v2W_ + 3 * 128, out.wdl, 128, 3);
+    }
     softmax_inplace(out.wdl, 3);
     return out;
 }
@@ -238,8 +271,16 @@ std::optional<Net> Net::load(const std::string& path) {
     f.read(reinterpret_cast<char*>(&cfg.dff), 4);
     f.read(reinterpret_cast<char*>(&cfg.dpol), 4);
     if (!f || magic != kMagic) return std::nullopt;
-    if (version != kVersion1 && version != kVersion2GAB) return std::nullopt;
+    if (version != kVersion1 && version != kVersion2GAB && version != kVersion3)
+        return std::nullopt;
     if (cfg.d > kMaxD || cfg.dff > 4096) return std::nullopt;
+
+    auto rd_tail = [&](std::vector<float>& v, std::size_t n) {
+        const std::size_t off = v.size();
+        v.resize(off + n);
+        f.read(reinterpret_cast<char*>(v.data() + off), static_cast<std::streamsize>(n * 4));
+        return off;
+    };
 
     Net net;
     net.cfg_ = cfg;
@@ -259,11 +300,25 @@ std::optional<Net> Net::load(const std::string& path) {
     net.w_.resize(total);
     f.read(reinterpret_cast<char*>(net.w_.data()), static_cast<std::streamsize>(total * 4));
     if (!f) return std::nullopt;
-    if (version == kVersion2GAB) {
+    if (version >= kVersion2GAB) {
         // GAB table appended after the standard stream (v1 is a strict prefix)
         net.gab_table_.resize(cfg.heads * 8);
         f.read(reinterpret_cast<char*>(net.gab_table_.data()),
                static_cast<std::streamsize>(net.gab_table_.size() * 4));
+        if (!f) return std::nullopt;
+    }
+    if (version >= kVersion3) {
+        // SPEC-BLOB-V3.md tail: embeddings, HiCo tail, bucketed value head.
+        // All fp32, matching trainer/model.py blob_tensors() order.
+        net.v3_ = true;
+        net.castle_emb_ = rd_tail(net.w_, 16 * cfg.d);
+        net.ep_emb_ = rd_tail(net.w_, 9 * cfg.d);
+        net.king_bucket_emb_ = rd_tail(net.w_, 16 * cfg.d);
+        net.rating_emb_ = rd_tail(net.w_, 16 * cfg.d);
+        net.hist_emb_ = rd_tail(net.w_, 3 * 2 * cfg.d);
+        net.hist_gate_ = rd_tail(net.w_, 3);
+        net.v3_v2W_ = rd_tail(net.w_, 3 * 8 * 128);
+        net.v3_v2B_ = rd_tail(net.w_, 8 * 3);
         if (!f) return std::nullopt;
     }
 

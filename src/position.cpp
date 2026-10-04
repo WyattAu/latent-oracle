@@ -19,6 +19,7 @@ std::optional<PositionState> parse_fen(std::string_view fen) {
     if (nfields < 2) return std::nullopt;
 
     PositionState p{};
+    p.ep_square = NO_EP;  // zero-init would alias ep square a1 (latent bug)
 
     // 1. Piece placement: ranks 8 -> 1, files a -> h.
     {

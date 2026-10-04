@@ -65,6 +65,14 @@ class Net {
     std::size_t lnV_ = 0, v1W_ = 0, v1B_ = 0, v2W_ = 0, v2B_ = 0;
     // blob v2 (GAB): learned per-head bias over square-relation buckets
     std::vector<float> gab_table_;  // heads * 8; empty when absent
+    // blob v3 (SPEC-BLOB-V3.md): castle/ep/king/rating embeddings, HiCo
+    // history tail, material-bucketed value head. The engine supplies
+    // castle/ep/king from the position; rating defaults to bucket 0 and
+    // history is not yet plumbed (zero-init tail makes both no-ops).
+    std::size_t castle_emb_ = 0, ep_emb_ = 0, king_bucket_emb_ = 0, rating_emb_ = 0;
+    std::size_t hist_emb_ = 0, hist_gate_ = 0;  // loaded, unused until plumbed
+    std::size_t v3_v2W_ = 0, v3_v2B_ = 0;       // bucketed value head (24x128 + 24)
+    bool v3_ = false;
     int recycle_ = 1;
     float loopcd_alpha_ = 0.0f;
 };
