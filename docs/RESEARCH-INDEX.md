@@ -20,6 +20,7 @@
 | [RESEARCH-EVAL.md](RESEARCH-EVAL.md) | SPRT power analysis, fast triage, proxy metrics, promotion policy |
 | [RESEARCH-RL.md](RESEARCH-RL.md) | GRPO from SF rewards, Faynt precedent (10M + RL), anchored self-play, QTPT Q-targets |
 | [RESEARCH-REPRESENTATIONS.md](RESEARCH-REPRESENTATIONS.md) | Distributional values, auxiliary tasks (JEPA-lite, reply prediction), trunk families |
+| [RESEARCH-EXTERNAL.md](RESEARCH-EXTERNAL.md) | NNUE corpus (buckets, factorizer, SCReLU), KataGo efficiency, Lc0 production, Maia rating-conditioning |
 | [SPEC-OPTIMAL-MODEL.md](SPEC-OPTIMAL-MODEL.md) | Earlier synthesis: AV targets, pipeline, compute budget |
 | [SPEC-DIFFUSION.md](SPEC-DIFFUSION.md) | Diffusion tokenizer/training/inference spec |
 
