@@ -24,6 +24,7 @@
 | [RESEARCH-NOVEL.md](RESEARCH-NOVEL.md) | Invented: HiCo history-conditioning, Recycle-Consistent Training, UGAR gate — with prior-art checks and kill criteria |
 | [RESEARCH-NOVEL2.md](RESEARCH-NOVEL2.md) | Invented: CTAP child-token attention (amortized 1-ply search), AMZ amortized minimax (oracle-ceiling breaker), LID spec — pre-registered experiment ladders |
 | [RESEARCH-SYSTEMS.md](RESEARCH-SYSTEMS.md) | Measured latency (INT8 4.7×), optimization backlog, robustness inventory, statistical/testing rigor + gaps |
+| [RESEARCH-ENDGAME-RL.md](RESEARCH-ENDGAME-RL.md) | Syzygy ground-truth endgame labels (free perfect labels), Gumbel-GRPO sampling, TD-consistency, conversion metrics |
 | [SPEC-BLOB-V3.md](SPEC-BLOB-V3.md) | Single bundled format change: castling/ep, material buckets, rating, HiCo, GAB-in-NetQ — validation checklist |
 | [SPEC-OPTIMAL-MODEL.md](SPEC-OPTIMAL-MODEL.md) | Earlier synthesis: AV targets, pipeline, compute budget |
 | [SPEC-DIFFUSION.md](SPEC-DIFFUSION.md) | Diffusion tokenizer/training/inference spec |
@@ -63,9 +64,9 @@
 3. ~~LoopCD at inference~~ **IMPLEMENTED** (engine `RecyclePasses`/`LoopCDAlpha`).
 4. ~~Muon~~ **IMPLEMENTED** (trainer `--optimizer muon`).
 5. ~~EMA weights + move-matching eval + file-mirror aug~~ **IMPLEMENTED**.
-6. **RL-GRPO stage** (RESEARCH-RL.md): SF-reward group-relative policy
-   optimization on top of the AV net — the biggest remaining lever per the
-   Faynt 10M-param precedent. Build after AV lands.
+6. **RL-GRPO stage** (RESEARCH-RL.md + RESEARCH-ENDGAME-RL.md E2):
+   SF-reward GRPO with Gumbel-top-K sampling (improvement-guaranteed) on
+   top of the AV net. Build after AV lands.
 7. **HPO stage A/B** per RESEARCH-HPO.md once the current chain lands.
 8. **DiffuSearch pilot**: trainer+inference scaffold IMPLEMENTED
    (train_diffusion.py/infer_diffusion.py); GPU run queued behind the chain.
