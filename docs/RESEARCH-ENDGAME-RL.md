@@ -19,6 +19,10 @@ decisiveness heuristics. ~6-9% of a Lichess shard reaches ≤5 pieces; for
 ### Design
 1. Sweep the combined shard; for each record with ≤5 pieces, probe WDL
    (win/draw/loss) and DTZ (distance to zeroing).
+   MEASURED coverage: ~0.57% of shard records are ≤5 pieces (170/30k on
+   labeled_1m; games rarely reach 5 pieces) → 50M records yield ~280k
+   exact-label positions. Still worth it — perfect labels exactly where
+   the model is weakest — but it is a precision patch, not a data flood.
 2. Value target: replace the logistic-eval soft WDL with the EXACT WDL.
 3. Policy target: the DTZ-optimal move (probe each legal child, pick
    min-|DTZ| toward the win / max toward the draw) — a *perfect* policy
