@@ -3,6 +3,7 @@
 #include "engine_oracle/engine.hpp"
 #include "movegen/movegen.hpp"
 #include "nn/net.hpp"
+#include "nn/netq.hpp"
 #include "tb/tb.hpp"
 #include "uci/spsc_ring.hpp"
 
@@ -10,6 +11,7 @@
 #include <chrono>
 #include <limits>
 #include <optional>
+#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -57,7 +59,8 @@ struct Session {
     bool has_root = false;
     std::vector<std::uint64_t> history;  // Zobrist keys, root position included
     std::string weights_path;            // empty => PST fallback
-    std::optional<lo::nn::Net> net;
+    std::optional<lo::nn::Net> net;      // FP32 ("LONW")
+    std::optional<lo::nn::NetQ> netq;    // INT8 ("LOQW"); preferred when set
     int recycle = 1;                     // RecyclePasses (looped trunk)
     float loopcd_alpha = 0.0f;           // LoopCD contrastive-decoding strength
 };
@@ -149,9 +152,21 @@ void handle_line(Session& s, const std::string& line) {
                 std::cout << "info string syzygy " << (ok ? "loaded" : "FAILED") << "\n" << std::flush;
             } else if (name == "WeightsFile") {
                 s.weights_path = line.substr(vpos + 7);
-                s.net = lo::nn::Net::load(s.weights_path);
-                if (s.net) s.net->set_inference(s.recycle, s.loopcd_alpha);
-                if (!s.net)
+                // magic-dispatch: "LONW" -> FP32 Net, "LOQW" -> INT8 NetQ
+                std::uint32_t magic = 0;
+                if (std::FILE* fp = std::fopen(s.weights_path.c_str(), "rb")) {
+                    if (std::fread(&magic, 4, 1, fp) != 1) magic = 0;
+                    std::fclose(fp);
+                }
+                s.net.reset();
+                s.netq.reset();
+                if (magic == 0x57514F4CU) {  // "LOQW" LE
+                    s.netq = lo::nn::NetQ::load(s.weights_path);
+                } else {
+                    s.net = lo::nn::Net::load(s.weights_path);
+                    if (s.net) s.net->set_inference(s.recycle, s.loopcd_alpha);
+                }
+                if (!s.net && !s.netq)
                     std::cout << "info string cannot load weights: " << s.weights_path << "\n" << std::flush;
             } else if (name == "RecyclePasses") {
                 try {
@@ -192,8 +207,12 @@ void handle_line(Session& s, const std::string& line) {
         }
         Move best = MOVE_NONE;
         if (s.has_root) {
-            best = s.net ? engine::bestmove_net(s.root, s.history, *s.net, own_time)
-                         : engine::bestmove(s.root, s.history);
+            if (s.netq)
+                best = engine::bestmove_net_q(s.root, s.history, *s.netq, own_time);
+            else if (s.net)
+                best = engine::bestmove_net(s.root, s.history, *s.net, own_time);
+            else
+                best = engine::bestmove(s.root, s.history);
         }
         std::cout << "bestmove " << (best == MOVE_NONE ? std::string("0000") : move_to_uci(best))
                   << "\n"
