@@ -245,7 +245,7 @@ std::optional<NetQ> NetQ::load(const std::string& path) {
     return net;
 }
 
-NetQOutput NetQ::evaluate(const PositionState& pos) const {
+NetQOutput NetQ::evaluate(const PositionState& pos, const NetHistory& hist) const {
     const int d = static_cast<int>(cfg_.d);
     const int heads = static_cast<int>(cfg_.heads);
     const int hd = d / heads;
@@ -358,6 +358,10 @@ NetQOutput NetQ::evaluate(const PositionState& pos) const {
 float* NetQ::x_buf() {
     static thread_local float buf[64 * kMaxD];
     return buf;
+}
+
+NetQOutput NetQ::evaluate(const PositionState& pos) const {
+    return evaluate(pos, NetHistory{});
 }
 
 }  // namespace lo::nn

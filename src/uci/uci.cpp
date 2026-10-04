@@ -58,6 +58,7 @@ struct Session {
     PositionState root{};
     bool has_root = false;
     std::vector<std::uint64_t> history;  // Zobrist keys, root position included
+    std::vector<lo::Move> game_moves;    // for HiCo history (last 3 plies)
     std::string weights_path;            // empty => PST fallback
     std::optional<lo::nn::Net> net;      // FP32 ("LONW")
     std::optional<lo::nn::NetQ> netq;    // INT8 ("LOQW"); preferred when set
@@ -77,6 +78,8 @@ void apply_moves(Session& s, std::istringstream& iss) {
             if (move_to_uci(ml.moves[i]) == mstr) {
                 s.root = apply(s.root, ml.moves[i]);
                 s.history.push_back(s.root.zobrist);
+                s.game_moves.push_back(ml.moves[i]);
+                if (s.game_moves.size() > 3) s.game_moves.erase(s.game_moves.begin());
                 found = true;
                 break;
             }
@@ -118,6 +121,7 @@ void set_position(Session& s, const std::string& line) {
     s.root = *parsed;
     s.has_root = true;
     s.history.clear();
+    s.game_moves.clear();
     s.history.push_back(s.root.zobrist);
     apply_moves(s, iss);
 }
@@ -139,6 +143,7 @@ void handle_line(Session& s, const std::string& line) {
     } else if (cmd == "ucinewgame") {
         s.has_root = false;
         s.history.clear();
+        s.game_moves.clear();
     } else if (cmd == "setoption") {
         // setoption name WeightsFile value <path>
         auto npos = line.find("name ");
@@ -207,10 +212,16 @@ void handle_line(Session& s, const std::string& line) {
         }
         Move best = MOVE_NONE;
         if (s.has_root) {
+            lo::nn::NetHistory hist;
+            for (std::size_t i = 0; i < s.game_moves.size() && i < 3; ++i) {
+                hist.from[i] = static_cast<std::uint8_t>(move_from(s.game_moves[i]));
+                hist.to[i] = static_cast<std::uint8_t>(move_to(s.game_moves[i]));
+            }
+            hist.n = static_cast<std::uint8_t>(std::min<std::size_t>(3, s.game_moves.size()));
             if (s.netq)
-                best = engine::bestmove_net_q(s.root, s.history, *s.netq, own_time);
+                best = engine::bestmove_net_q(s.root, s.history, *s.netq, own_time, hist);
             else if (s.net)
-                best = engine::bestmove_net(s.root, s.history, *s.net, own_time);
+                best = engine::bestmove_net(s.root, s.history, *s.net, own_time, hist);
             else
                 best = engine::bestmove(s.root, s.history);
         }

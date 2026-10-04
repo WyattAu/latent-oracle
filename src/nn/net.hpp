@@ -32,11 +32,20 @@ struct NetOutput {
     float promo_logit[4];                // pooled promotion logits (N B R Q)
 };
 
+// HiCo history (SPEC-BLOB-V3): up to 3 previous plies, OLDEST FIRST, as
+// (from, to) square pairs. Zero-init gate in the blob makes an absent or
+// untrained history an exact no-op.
+struct NetHistory {
+    std::uint8_t n = 0;
+    std::uint8_t from[3] = {}, to[3] = {};
+};
+
 class Net {
   public:
     static std::optional<Net> load(const std::string& path);
 
     NetOutput evaluate(const PositionState& pos) const;
+    NetOutput evaluate(const PositionState& pos, const NetHistory& hist) const;
 
     // Inference-time recycling (looped trunk) + LoopCD contrastive decoding:
     // pass 1 scores S1 are kept, the trunk runs `recycle` times total, and the

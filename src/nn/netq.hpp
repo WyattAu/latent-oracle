@@ -12,7 +12,7 @@
 // parity contract (this file and the Python quantized simulation) do this
 // identically.
 
-#include "position.hpp"
+#include "nn/net.hpp"
 #include <vector>
 
 #include <cstdint>
@@ -40,6 +40,7 @@ class NetQ {
     static std::optional<NetQ> load(const std::string& path);
 
     NetQOutput evaluate(const PositionState& pos) const;
+    NetQOutput evaluate(const PositionState& pos, const NetHistory& hist) const;
 
   private:
     struct QL {

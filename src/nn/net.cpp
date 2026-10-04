@@ -171,7 +171,7 @@ void Net::policy_scores(float* out_scores) const {
         }
 }
 
-NetOutput Net::evaluate(const PositionState& pos) const {
+NetOutput Net::evaluate(const PositionState& pos, const NetHistory& hist) const {
     const int d = static_cast<int>(cfg_.d);
     const int heads = static_cast<int>(cfg_.heads);
     const int hd = d / heads;
@@ -208,6 +208,15 @@ NetOutput Net::evaluate(const PositionState& pos) const {
         for (int sq = 0; sq < 64; ++sq)
             for (int i = 0; i < d; ++i)
                 x_buf()[static_cast<std::size_t>(sq) * d + i] += ce[i] + ee[i] + ke[i] + re[i];
+        // HiCo history: gated additive embeddings on from/to squares
+        for (int p = 0; p < hist.n; ++p) {
+            const float g = w_[hist_gate_ + p];
+            const float* ef = w_.data() + hist_emb_ + static_cast<std::size_t>(p) * 2 * d;
+            for (int i = 0; i < d; ++i) {
+                x_buf()[static_cast<std::size_t>(hist.from[p]) * d + i] += g * ef[i];
+                x_buf()[static_cast<std::size_t>(hist.to[p]) * d + i] += g * ef[d + i];
+            }
+        }
     }
 
     // Trunk pass 1 (recycling: earlier passes are weaker predictors whose
@@ -347,6 +356,10 @@ std::optional<Net> Net::load(const std::string& path) {
 float* Net::x_buf() {
     static thread_local float buf[64 * kMaxD];
     return buf;
+}
+
+NetOutput Net::evaluate(const PositionState& pos) const {
+    return evaluate(pos, NetHistory{});
 }
 
 }  // namespace lo::nn
