@@ -87,7 +87,11 @@ std::optional<PositionState> parse_fen(std::string_view fen) {
         const Square ep = square_from_name(fields[3]);
         if (static_cast<int>(ep) < 0) return std::nullopt;
         const Color us = static_cast<Color>(p.side_to_move);
-        if (PAWN_ATTACKS[us][ep] & p.pieces[~us][PAWN]) {
+        // Capturability: OUR pawns attacking the ep square sit on the
+        // squares a ~us pawn on `ep` would attack (mirrored pattern).
+        // The inverted form silently dropped legal ep captures from FENs
+        // (found by movegen fuzzing vs python-chess).
+        if (PAWN_ATTACKS[~us][ep] & p.pieces[us][PAWN]) {
             p.ep_square = static_cast<std::uint8_t>(ep);
             p.zobrist ^= ZOBRIST.ep[ep & 7];
         }
