@@ -21,6 +21,7 @@
 | [RESEARCH-RL.md](RESEARCH-RL.md) | GRPO from SF rewards, Faynt precedent (10M + RL), anchored self-play, QTPT Q-targets |
 | [RESEARCH-REPRESENTATIONS.md](RESEARCH-REPRESENTATIONS.md) | Distributional values, auxiliary tasks (JEPA-lite, reply prediction), trunk families |
 | [RESEARCH-EXTERNAL.md](RESEARCH-EXTERNAL.md) | NNUE corpus (buckets, factorizer, SCReLU), KataGo efficiency, Lc0 production, Maia rating-conditioning |
+| [RESEARCH-NOVEL.md](RESEARCH-NOVEL.md) | Invented: HiCo history-conditioning, Recycle-Consistent Training, UGAR gate — with prior-art checks and kill criteria |
 | [SPEC-OPTIMAL-MODEL.md](SPEC-OPTIMAL-MODEL.md) | Earlier synthesis: AV targets, pipeline, compute budget |
 | [SPEC-DIFFUSION.md](SPEC-DIFFUSION.md) | Diffusion tokenizer/training/inference spec |
 
@@ -65,3 +66,6 @@
 7. **HPO stage A/B** per RESEARCH-HPO.md once the current chain lands.
 8. **DiffuSearch pilot**: trainer+inference scaffold IMPLEMENTED
    (train_diffusion.py/infer_diffusion.py); GPU run queued behind the chain.
+9. **Novel techniques** (RESEARCH-NOVEL.md): RCT (recycle-consistent
+   training) first — zero engine changes; then HiCo history-conditioning
+   with blob v3. Both have kill criteria defined.

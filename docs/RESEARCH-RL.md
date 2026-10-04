@@ -66,7 +66,13 @@ decision policies; DeepSeek-R1 lineage.
   so 16 moves × 512 positions ≈ 33s of SF time per training step — batch on
   the 6 CPU cores, overlap with GPU updates.
 
-### 3.3 Expected gain
+### 3.3 Prior art note
+"When and Where to Trust the Teacher: Unifying On-Policy Distillation and
+GRPO through Entropy-Calibration" (Sep 2026) formalizes the teacher-guided
+GRPO hybrid — read before implementing §3; its entropy-calibration rule
+likely replaces hand-tuning of the KL anchor.
+
+### 3.4 Expected gain
 Faynt: pretrain→RL ≫ pretrain alone. For us: +100–300 Elo plausible if the
 BC policy is ~2000 and the reward signal is sound. Risk: reward hacking
 (weird-but-SF-good positions) — mitigated by the KL anchor and by using
