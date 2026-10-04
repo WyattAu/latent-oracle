@@ -22,6 +22,7 @@
 | [RESEARCH-REPRESENTATIONS.md](RESEARCH-REPRESENTATIONS.md) | Distributional values, auxiliary tasks (JEPA-lite, reply prediction), trunk families |
 | [RESEARCH-EXTERNAL.md](RESEARCH-EXTERNAL.md) | NNUE corpus (buckets, factorizer, SCReLU), KataGo efficiency, Lc0 production, Maia rating-conditioning |
 | [RESEARCH-NOVEL.md](RESEARCH-NOVEL.md) | Invented: HiCo history-conditioning, Recycle-Consistent Training, UGAR gate — with prior-art checks and kill criteria |
+| [RESEARCH-NOVEL2.md](RESEARCH-NOVEL2.md) | Invented: CTAP child-token attention (amortized 1-ply search), AMZ amortized minimax (oracle-ceiling breaker), LID spec — pre-registered experiment ladders |
 | [SPEC-OPTIMAL-MODEL.md](SPEC-OPTIMAL-MODEL.md) | Earlier synthesis: AV targets, pipeline, compute budget |
 | [SPEC-DIFFUSION.md](SPEC-DIFFUSION.md) | Diffusion tokenizer/training/inference spec |
 
@@ -66,6 +67,7 @@
 7. **HPO stage A/B** per RESEARCH-HPO.md once the current chain lands.
 8. **DiffuSearch pilot**: trainer+inference scaffold IMPLEMENTED
    (train_diffusion.py/infer_diffusion.py); GPU run queued behind the chain.
-9. **Novel techniques** (RESEARCH-NOVEL.md): RCT (recycle-consistent
-   training) first — zero engine changes; then HiCo history-conditioning
-   with blob v3. Both have kill criteria defined.
+9. **Novel techniques** (RESEARCH-NOVEL.md/NOVEL2.md): RCT implemented
+   (`--recycle/--rct-lambda`); AMZ offline pilot is the top research bet
+   (oracle-ceiling breaker) — runs on BC-v1 weights as soon as the GPU
+   queue drains; then CTAP with blob v3; HiCo after.
