@@ -24,6 +24,7 @@
 | [RESEARCH-NOVEL.md](RESEARCH-NOVEL.md) | Invented: HiCo history-conditioning, Recycle-Consistent Training, UGAR gate — with prior-art checks and kill criteria |
 | [RESEARCH-NOVEL2.md](RESEARCH-NOVEL2.md) | Invented: CTAP child-token attention (amortized 1-ply search), AMZ amortized minimax (oracle-ceiling breaker), LID spec — pre-registered experiment ladders |
 | [RESEARCH-SYSTEMS.md](RESEARCH-SYSTEMS.md) | Measured latency (INT8 4.7×), optimization backlog, robustness inventory, statistical/testing rigor + gaps |
+| [SPEC-BLOB-V3.md](SPEC-BLOB-V3.md) | Single bundled format change: castling/ep, material buckets, rating, HiCo, GAB-in-NetQ — validation checklist |
 | [SPEC-OPTIMAL-MODEL.md](SPEC-OPTIMAL-MODEL.md) | Earlier synthesis: AV targets, pipeline, compute budget |
 | [SPEC-DIFFUSION.md](SPEC-DIFFUSION.md) | Diffusion tokenizer/training/inference spec |
 
