@@ -27,3 +27,10 @@ jobs:
       - name: Full perft suite (release-grade check)
         if: matrix.preset == 'debug'
         run: ./build/debug/latent-oracle perftsuite
+      - name: Inference parity gate (FP32 + INT8, needs data repo as sibling)
+        if: matrix.preset == 'debug'
+        run: |
+          git clone --depth 1 https://github.com/WyattAu/latent-oracle-data.git ../latent-oracle-data
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy python-chess
+          python3 tests/ci_parity.py --engine build/debug/latent-oracle
