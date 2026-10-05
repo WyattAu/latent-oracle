@@ -111,6 +111,21 @@ labeler SF processes + GPU training active during measurement.
 
 ---
 
+## 4.5 Sample-slice validation policy (added 2026-10-05)
+
+**Standing rule: every bulk dataset build validates a small slice before the
+full scan.** After the diffusion tokenizer poisoning (black pieces shifted
+×2) wasted a 2M-sample build, `build_samples`, `amz_pilot`, and
+`make_tb_labels` now fail fast at ~50–2000 items on:
+- token/target range and shape invariants,
+- decode round-trip piece sanity (exactly one king per side),
+- one real forward/backward step (finite loss).
+
+Negative test: re-injecting the original bug trips the gate at the
+king-count assertion. Cost when clean: seconds. Cost when dirty: minutes
+instead of hours. This generalizes the fuzz-test lesson (fuzz_movegen
+caught the ep bug) to dataset construction.
+
 ## 5. Conclusions
 
 1. The INT8 path's 4.7× is production-real; a further ~5× is on the table
