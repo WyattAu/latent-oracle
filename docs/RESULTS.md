@@ -34,8 +34,28 @@ unless noted. Elo ± CI from the game-level MLE; pair-model numbers where run.
 | AMZ puzzle gate | base + 1.5 pts |
 | AV two-stage vs BC-chain best | after labels (~2 days) |
 
-## Mechanism baselines (E4)
+## Mechanism baselines (E4) — NOT cross-comparable (different opponents)
 
-| Net | Conversion (≥3 mat, move 10+) | Replays/game | Forfeits |
-|---|---|---|---|
-| Distilled-1M-ext | 77.9% | 0 | 0 |
+| Net | Opponent | Conversion (≥3 mat, move 10+) | Replays/game | Forfeits |
+|---|---|---|---|---|
+| Distilled-1M-ext | SF16-p1 | 77.9% | 0 | 0 |
+| **BC-v1** | SF16-p2 | **45.3%** (72/159) | 0 | 0 |
+
+BC-v1's low conversion vs distilled is confounded by the stronger defender
+(SF-2ply defends better). E1 Syzygy labels target exactly this bucket; the
+AV phase re-measures on a fixed opponent.
+
+## Pair-model (pentanomial) cross-checks
+
+| Match | Pair Elo | Consistency |
+|---|---|---|
+| BC-v1 vs SF16-p2 | +3.5 ± 24.6 (49.5% pairs) | ✓ confirms game-level −7 ± 34 |
+| Distilled-1M-ext vs SF16-p1 | +6.9 ± 24.6 | ✓ |
+
+## Incident register (2026-10-04/05)
+
+| Incident | Catch | Fix |
+|---|---|---|
+| parse_fen ep direction inverted | movegen fuzz (1/200) | direction flipped; perft green |
+| phase_post `$txt` case typo | bash -x trace | fixed; 6 refs; memory guard added |
+| Diffusion tokenizer: black pieces shifted ×2 + 'b' vocab collision | loss curve starting at 0.24 (impossible for honest CE) + device-side assert | CODE_TO_CHAR map + SIDE rename; poisoned 2M cache deleted; regression test added |
