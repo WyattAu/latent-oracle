@@ -1,0 +1,5 @@
+[default]
+extend-ignore-identifiers-re = []
+
+[files]
+extend-exclude = ["LICENSE", "PROVENANCE.md", "third_party"]
