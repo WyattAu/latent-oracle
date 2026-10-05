@@ -64,9 +64,9 @@
 3. ~~LoopCD at inference~~ **IMPLEMENTED** (engine `RecyclePasses`/`LoopCDAlpha`).
 4. ~~Muon~~ **IMPLEMENTED** (trainer `--optimizer muon`).
 5. ~~EMA weights + move-matching eval + file-mirror aug~~ **IMPLEMENTED**.
-6. **RL-GRPO stage** (RESEARCH-RL.md + RESEARCH-ENDGAME-RL.md E2):
-   SF-reward GRPO with Gumbel-top-K sampling (improvement-guaranteed) on
-   top of the AV net. Build after AV lands.
+6. **RL-GRPO stage** — IMPLEMENTED (grpo_train.py: Gumbel-top-K groups,
+   SF-reward pool, PPO clip + KL anchor, v3 inputs; grpo_phase.sh armed
+   behind AV). Runs the moment the AV net exists.
 7. **HPO stage A/B** per RESEARCH-HPO.md once the current chain lands.
 8. **DiffuSearch pilot**: trainer+inference scaffold IMPLEMENTED
    (train_diffusion.py/infer_diffusion.py); GPU run queued behind the chain.
