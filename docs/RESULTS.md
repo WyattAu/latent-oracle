@@ -197,6 +197,41 @@ Also fixed in the same pass (real bugs in the diffusion inference path):
 `decode_source_board` dropped castling and en-passant, so `infer_diffusion`'s
 legal-move gate **forbade castling outright** and mis-decoded EP states.
 
+## AMZ — REJECTED: oracle supervision destroys the policy (2026-10-06)
+
+The second moonshot, run to completion by the queue (50k positions, 1 epoch,
+lr 1e-4), failed its own pre-registered puzzle gate and then the calibrated
+metric:
+
+| measure | BC base | AMZ pilot |
+|---|---|---|
+| puzzle score (queue gate: needs base + 0.015) | **0.460** | **0.162** |
+| policy accuracy vs SF's best move | **51.0%** | **15.0%** |
+
+One epoch of oracle supervision on 50k positions cut policy accuracy by
+two thirds. The likely reason is structural rather than a tuning accident:
+AMZ's targets are conditioned on the **opponent's reply distribution**, which
+the policy never observes at inference. Training a memoryless policy on
+reply-conditioned soft targets is privileged-information training, and the
+mismatch shows up exactly where it would — the policy learns to expect
+information it will not have.
+
+That is a testable claim about the mechanism, not just a failed run: AMZ
+would need the reply information at inference (i.e. search, which this project
+excludes) or a way to marginalize it into a memoryless target. The first
+moonshot's failure (action accuracy does not convert to strength) and this
+one (privileged targets do not transfer) are both about the gap between a
+training signal and what a searchless policy can actually condition on.
+
+The 400-game SPRT that would have followed was killed rather than run: the
+gate had already rejected the net decisively and policy accuracy measures the
+same thing in seconds, so the games would only have taken CPU from the
+labeler, which is the critical path.
+
+**Both moonshots are now rejected.** The GPU plan reverts to the levers with
+documented evidence behind them: data scaling (50M -> 130M, running) and RL
+(AV, then GRPO).
+
 ## Queued mechanism candidates (2026-10-06)
 
 Ranked by expected value per unit of compute, with the reason each is not
@@ -206,7 +241,8 @@ accuracy ranks low.
 
 | # | Mechanism | Rationale | Why deferred |
 |---|---|---|---|
-| 0 | **DiffuSearch variants** (LID, CTAP, different horizons) | — | **dropped**: the mechanism lost 0-12 to greedy play of the same weights; variants inherit the failure until the action-accuracy -> strength gap is explained |
+| 0 | **DiffuSearch variants** (LID, CTAP, different horizons) | — | **dropped**: 23.3% policy accuracy vs SF-best (BC: 51.0%) and 0-12 in play; variants inherit the failure until that gap is explained |
+| 0b | **AMZ variants** (coarser reply sampling, marginalizing the reply) | — | **dropped pending a mechanism fix**: reply-conditioned targets are privileged information a memoryless policy cannot use at inference |
 | 1 | **Volatility weighting** — upweight positions where the evaluation swung between consecutive plies (a free proxy for "tactically critical", available in the shard without extra SF work) | directly targets the measured bottleneck; needs no new labels | the labeler would have to emit a per-record delta, and the labeler is mid-run on the critical path. Resumability makes the change cheap later, but not free of risk |
 | 2 | **MirrorAvg at higher N** | already implemented, mapping-verified and CI-gated; +38cp paired sign is encouraging | needs ~2500 paired positions (~1-2 h of a contended box) to resolve |
 | 3 | **Policy-aware hard-example mining** — upweight positions where the *current* policy's greedy move loses >= 200cp vs SF | the direct version of volatility weighting on the model's own errors rather than the game's | requires one inference pass per labeled position; `mine_blindspots.py` already covers the value-head variant and has never been run on real moonshot output |
