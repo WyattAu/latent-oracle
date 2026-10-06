@@ -134,6 +134,24 @@ file-mirrored position must be the file-flip of the choice in the original;
 holds on all four test positions), and wired into CI, so the experiment is
 ready to run; only the measurement is missing.
 
+## Queued mechanism candidates (2026-10-06)
+
+Ranked by expected value per unit of compute, with the reason each is not
+running yet. The loss-attribution result above (tactics dominate) is the
+filter: anything that does not plausibly improve middlegame tactical
+accuracy ranks low.
+
+| # | Mechanism | Rationale | Why deferred |
+|---|---|---|---|
+| 1 | **Volatility weighting** — upweight positions where the evaluation swung between consecutive plies (a free proxy for "tactically critical", available in the shard without extra SF work) | directly targets the measured bottleneck; needs no new labels | the labeler would have to emit a per-record delta, and the labeler is mid-run on the critical path. Resumability makes the change cheap later, but not free of risk |
+| 2 | **MirrorAvg at higher N** | already implemented, mapping-verified and CI-gated; +38cp paired sign is encouraging | needs ~2500 paired positions (~1-2 h of a contended box) to resolve |
+| 3 | **Policy-aware hard-example mining** — upweight positions where the *current* policy's greedy move loses >= 200cp vs SF | the direct version of volatility weighting on the model's own errors rather than the game's | requires one inference pass per labeled position; `mine_blindspots.py` already covers the value-head variant and has never been run on real moonshot output |
+| 4 | **Quantizer vectorization** (5x faster SPRT) | every future verdict gets 5x the games for the same wall clock | no mechanism value; pure infrastructure, revisit when a verdict is borderline |
+
+Explicitly **not** queued: opening-book work, endgame engineering, and
+material heuristics. Together they account for ~15-20% of attributable
+losses, and the endgame already has exact tablebase play.
+
 ## Incident register (2026-10-04/05)
 
 | Incident | Catch | Fix |
