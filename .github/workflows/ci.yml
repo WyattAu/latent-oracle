@@ -34,3 +34,9 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install numpy python-chess
           python3 tests/ci_parity.py --engine build/debug/latent-oracle
+      - name: Movegen differential fuzz vs python-chess
+        if: matrix.preset == 'debug'
+        run: |
+          pip install python-chess
+          python3 tests/fuzz_movegen.py --engine build/debug/latent-oracle \
+            --positions 300 --deep 15
