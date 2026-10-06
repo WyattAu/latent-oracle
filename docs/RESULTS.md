@@ -145,6 +145,7 @@ checkpoint (loss 0.0076 on the training objective):
 | training-time `a0 match` printout | **0.971** | **invalid.** It masks only half the target region, so the future state tokens stay visible and the move is trivially recoverable from the visible resulting position |
 | honest a0-match, whole target masked, T=16, legal gate | **0.330** | next-move predictability from the position alone (0.290 without the gate) |
 | **strength** — diffusion policy vs greedy play of the *same* BC weights | **0W 0D 12L** | playing strength |
+| harness control — greedy BC vs greedy BC (identical policies) | 3W 2D 5L, 0.400 ± 0.158 | confirms the harness does not favour either side |
 
 The strength harness (`trainer/diffusion_playout.py`) was validated before
 its verdict was believed: its inference path reproduces `infer_diffusion`'s
