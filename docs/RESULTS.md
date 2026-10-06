@@ -101,6 +101,39 @@ It also says the searchless ceiling is a *tactics* ceiling, so any future
 mechanism should be judged on middlegame tactical accuracy, not endgame or
 opening metrics.
 
+## MirrorAvg — inference-time test-time augmentation (2026-10-06, INCONCLUSIVE)
+
+Mechanism: the policy head is indexed by absolute squares and the square
+embeddings are not mirror-equivariant, so the net's file-mirrored view
+disagrees systematically. `MirrorAvg` sums a move's score with the score of
+its mirror image (u,v -> u^7,v^7) and averages the WDL head. Still O(1) in
+search depth; one extra forward pass (~10 ms against a 15 s clock). UCI
+option, **default off**, so no running verdict is affected.
+
+Measured with a paired position-level test (`tests/mirror_ab.py`, 250 real
+positions from the BC-v1 p2 match, both engines on one process, SF depth 8):
+
+| metric | value |
+|---|---|
+| positions where the move changes | 17/250 (**6.8%**) |
+| paired eval difference (on - off) | **+38.1cp** |
+| 95% bootstrap CI | [-46.9, +142.9] |
+| better / worse | 9 / 7 |
+
+**Verdict: inconclusive.** The sign is encouraging but the interval spans
+zero. A game-level SPRT would need hundreds of games to resolve this, which
+the shared box cannot afford; the paired test is the right instrument and
+simply needs more positions (at a 6.8% change rate, ~2500 positions gives
+~170 changed samples and a CI of roughly +/-30cp, which would resolve a
++38cp effect).
+
+Decision: **keep MirrorAvg off** and re-run the paired test at higher N when
+the box is free. It is implemented, mapping-verified
+(`tests/mirror_consistency.py` — with averaging on, the choice in the
+file-mirrored position must be the file-flip of the choice in the original;
+holds on all four test positions), and wired into CI, so the experiment is
+ready to run; only the measurement is missing.
+
 ## Incident register (2026-10-04/05)
 
 | Incident | Catch | Fix |
