@@ -181,8 +181,16 @@ struct MirrorView {
     PositionState pos{};
     nn::NetHistory hist{};
 
-    // score the mirror image of move m in the mirrored evaluation
+    // Score the mirror image of move m in the mirrored evaluation.
+    //
+    // Castling is deliberately excluded: a file-mirrored position with
+    // castling rights is geometrically impossible (the king is no longer on
+    // e1), so its "mirror" of a castling move is an ordinary king move scored
+    // from a nonsense position. Castling moves are therefore scored by the
+    // direct view only. The mirrored view also has its rights cleared (see
+    // run_mirror_view) so the net sees an in-distribution position.
     float score_for(const Move m) const {
+        if (move_type(m) == MT_CASTLE) return 0.0f;
         const auto fu = static_cast<std::uint8_t>(move_from(m) ^ 7);
         const auto tu = static_cast<std::uint8_t>(move_to(m) ^ 7);
         float s = out.scores[static_cast<std::size_t>(fu) * 64 + tu];
@@ -195,6 +203,10 @@ template <typename OutT, typename NetT>
 void run_mirror_view(const PositionState& p, const NetT& net, const nn::NetHistory* hist,
                      MirrorView<OutT, NetT>& mv) {
     mv.pos = mirror_position(p);
+    // Castling rights cannot survive a file mirror (the king would not be on
+    // e1), so clear them: the mirrored view is then an ordinary legal position
+    // and the net sees an input it was trained on.
+    mv.pos.castling = 0;
     if (hist) {
         mv.hist = *hist;
         for (std::uint8_t i = 0; i < mv.hist.n; ++i) {
