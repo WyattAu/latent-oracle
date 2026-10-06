@@ -52,6 +52,28 @@ AV phase re-measures on a fixed opponent.
 | BC-v1 vs SF16-p2 | +3.5 ± 24.6 (49.5% pairs) | ✓ confirms game-level −7 ± 34 |
 | Distilled-1M-ext vs SF16-p1 | +6.9 ± 24.6 | ✓ |
 
+## Scope change — labeled set halved for time-to-verdict (2026-10-06)
+
+The mixed-depth labeling target was cut from **4M@d10 + 1M@d16 to 2M + 0.5M**.
+
+Reason: the box is shared and other sessions drove load average to ~47 on 6
+cores, holding the labeler at 23 pos/s versus its 62 pos/s baseline (d16
+historically ran at 8-9 pos/s). That projects the original ~49 h to ~5 days
+before AV could start. Halving brings it to ~2.5 days at current load, and
+much less if the box frees up.
+
+Why this is cheap: it is a **fine-tune**, not training from scratch, and it
+saturates well before 4M — 2M x 2 epochs at batch 512 is 7.8k steps, and the
+tablebase sidecar still sees ~60-160k exact endgame labels from the <=5-piece
+positions in a 2M sample. Label *depth* is preserved, and depth matters more
+than volume for a fine-tune. If the AV verdict later shows the model is
+data-limited rather than mechanism-limited, the labeler resumes to 4M (the
+shard is durable and `--resume` continues from the record count).
+
+**This decision was only affordable because labeling became crash-safe**
+earlier the same session: the relaunch logged
+`resuming at record 130000 (130000 already durable)` instead of restarting.
+
 ## Loss attribution — where the Elo actually goes (2026-10-06)
 
 `trainer/analyze_losses.py` walks each net move, evaluates before/after with
