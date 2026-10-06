@@ -147,6 +147,27 @@ checkpoint (loss 0.0076 on the training objective):
 | **strength** — diffusion policy vs greedy play of the *same* BC weights | **0W 0D 12L** | playing strength |
 | harness control — greedy BC vs greedy BC (identical policies) | 3W 2D 5L, 0.400 ± 0.158 | confirms the harness does not favour either side |
 
+**Independent corroboration** (`trainer/policy_accuracy.py`, 300 labeled
+positions, both policies scored against the *same* reference — Stockfish's
+best move, taken from the shard's target list, so no extra analysis):
+
+| policy | agreement with SF's best move |
+|---|---|
+| BC greedy (the engine's own policy) | **51.0%** |
+| DiffuSearch (a0, T=16) | **23.3%** |
+| the two policies agree with each other | 35.3% |
+
+The diffusion policy picks SF's best move less than half as often, which
+explains the 0-12 result without invoking the playout harness at all. The two
+measurements are independent and agree.
+
+**This also calibrates the project.** BC-greedy sits at 51% against SF-best
+and plays at roughly -7 Elo versus SF16; DiffuSearch sits at 23% and loses
+every game. So *policy accuracy against a strong reference* is the metric
+that tracks strength, it is cheap (no games required), and it is comparable
+across policies. It replaces both a0-match against human moves and puzzle
+scores as the gate metric going forward.
+
 The strength harness (`trainer/diffusion_playout.py`) was validated before
 its verdict was believed: its inference path reproduces `infer_diffusion`'s
 a0 accuracy (27% vs 33%), and three separate harness bugs were found and
