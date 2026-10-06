@@ -52,6 +52,33 @@ AV phase re-measures on a fixed opponent.
 | BC-v1 vs SF16-p2 | +3.5 ± 24.6 (49.5% pairs) | ✓ confirms game-level −7 ± 34 |
 | Distilled-1M-ext vs SF16-p1 | +6.9 ± 24.6 | ✓ |
 
+## Loss attribution — where the Elo actually goes (2026-10-06)
+
+`trainer/analyze_losses.py` walks each net move, evaluates before/after with
+SF (side-to-move POV, reads to `bestmove`), and attributes each loss to the
+net's own worst moment. Mate positions are excluded: a mate delivery is the
+end of a game, not its cause. 40 games per match, depth 10.
+
+| Match | W-L | tactics | endgame | material | other | phase | median drop |
+|---|---|---|---|---|---|---|---|
+| BC-v1 e2 vs SF16-p1 | 12-14 | **64%** | 0% | 9% | 27% | middlegame 6, opening 4, endgame 1 | 325cp |
+| BC-v1 e2 vs SF16-p2 | 6-16 | **40%** | 30% | 10% | 20% | middlegame 5, endgame 3, opening 2 | 318cp |
+
+**Reading:** losses are dominated by *tactical* collapses in the middlegame
+(a ~320cp median drop is a hung piece or a missed threat). Endgame errors are
+real but secondary — and the endgame is where tablebases already give exact
+play. Openings barely register.
+
+**Implication — this validates the armed plan rather than redirecting it:**
+- decisive-position weighting already targets this and measured **+156 Elo**
+- GRPO (armed) optimizes exactly this: sharpness against a strong opponent
+- do **not** spend the next cycle on opening books, endgame engineering, or
+  material heuristics — together they are ~15-20% of the attributable losses
+
+It also says the searchless ceiling is a *tactics* ceiling, so any future
+mechanism should be judged on middlegame tactical accuracy, not endgame or
+opening metrics.
+
 ## Incident register (2026-10-04/05)
 
 | Incident | Catch | Fix |
