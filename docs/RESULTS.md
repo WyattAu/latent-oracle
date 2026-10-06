@@ -161,6 +161,17 @@ The diffusion policy picks SF's best move less than half as often, which
 explains the 0-12 result without invoking the playout harness at all. The two
 measurements are independent and agree.
 
+**The metric is validated against ground truth.** Scoring the existing nets
+with it reproduces the ordering their game verdicts established, at about a
+minute per net instead of hours of games:
+
+| net | policy acc vs SF-best | known game verdict |
+|---|---|---|
+| bc_v1 e2 | 0.555 | −7 (best) |
+| bc_v1 e0 | 0.530 | −32 |
+| bc_v1f e2 | 0.500 | ~0 (noisy-neutral; overlaps e0 within noise) |
+| bc_v0 e1 | 0.485 | −72 |
+
 **This also calibrates the project.** BC-greedy sits at 51% against SF-best
 and plays at roughly -7 Elo versus SF16; DiffuSearch sits at 23% and loses
 every game. So *policy accuracy against a strong reference* is the metric
