@@ -40,3 +40,8 @@ jobs:
           pip install python-chess
           python3 tests/fuzz_movegen.py --engine build/debug/latent-oracle \
             --positions 300 --deep 15
+      - name: MirrorAvg mapping consistency
+        if: matrix.preset == 'debug'
+        run: |
+          pip install python-chess
+          python3 tests/mirror_consistency.py --engine build/debug/latent-oracle

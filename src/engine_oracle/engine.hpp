@@ -37,8 +37,10 @@ Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& ke
 // History-conditioned variants (SPEC-BLOB-V3 HiCo): hist is OLDEST FIRST,
 // up to 3 plies. Nets without a trained history tail ignore it exactly.
 Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                  const nn::Net& net, std::int64_t own_time_ms, const nn::NetHistory& hist);
+                  const nn::Net& net, std::int64_t own_time_ms, const nn::NetHistory& hist,
+                  bool mirror_avg = false);
 Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                    const nn::NetQ& net, std::int64_t own_time_ms, const nn::NetHistory& hist);
+                    const nn::NetQ& net, std::int64_t own_time_ms, const nn::NetHistory& hist,
+                    bool mirror_avg = false);
 
 }  // namespace lo::engine

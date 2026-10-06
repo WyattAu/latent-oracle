@@ -1,5 +1,7 @@
 #include "engine_oracle/engine.hpp"
 
+#include <type_traits>
+
 #include "movegen/movegen.hpp"
 #include "tb/tb.hpp"
 
@@ -166,10 +168,50 @@ Move bestmove(const PositionState& p, const std::vector<std::uint64_t>& key_hist
     return best;
 }
 
+// Mirror-averaged policy (UCI MirrorAvg, default off).
+//
+// The policy head is indexed by absolute squares and the square embeddings are
+// not mirror-equivariant, so the net's two mirrored views disagree
+// systematically. Averaging them cancels part of that bias. Still one decision
+// per move -- O(1) in search depth -- for one extra forward pass (~10 ms
+// against a 15 s clock).
+template <typename OutT, typename NetT>
+struct MirrorView {
+    OutT out{};
+    PositionState pos{};
+    nn::NetHistory hist{};
+
+    // score the mirror image of move m in the mirrored evaluation
+    float score_for(const Move m) const {
+        const auto fu = static_cast<std::uint8_t>(move_from(m) ^ 7);
+        const auto tu = static_cast<std::uint8_t>(move_to(m) ^ 7);
+        float s = out.scores[static_cast<std::size_t>(fu) * 64 + tu];
+        if (move_type(m) == MT_PROMO) s += out.promo_logit[move_promo(m)];
+        return s;
+    }
+};
+
+template <typename OutT, typename NetT>
+void run_mirror_view(const PositionState& p, const NetT& net, const nn::NetHistory* hist,
+                     MirrorView<OutT, NetT>& mv) {
+    mv.pos = mirror_position(p);
+    if (hist) {
+        mv.hist = *hist;
+        for (std::uint8_t i = 0; i < mv.hist.n; ++i) {
+            mv.hist.from[i] = static_cast<std::uint8_t>(mv.hist.from[i] ^ 7);
+            mv.hist.to[i] = static_cast<std::uint8_t>(mv.hist.to[i] ^ 7);
+        }
+        mv.out = net.evaluate(mv.pos, mv.hist);
+    } else {
+        mv.out = net.evaluate(mv.pos);
+    }
+}
+
 template <typename NetT>
 Move bestmove_net_impl(const PositionState& p, const std::vector<std::uint64_t>& key_history,
                        const NetT& net, std::int64_t own_time_ms,
-                       const nn::NetHistory* hist = nullptr) {
+                       const nn::NetHistory* hist = nullptr,
+                       bool mirror_avg = false) {
     // Low clock: the net call costs ~0.3-0.7 s; the PST path costs ~us.
     // Playing a weaker move beats losing on time.
     if (own_time_ms >= 0 && own_time_ms < 10000) return bestmove(p, key_history);
@@ -192,8 +234,15 @@ Move bestmove_net_impl(const PositionState& p, const std::vector<std::uint64_t>&
     if (ml.count == 0) return MOVE_NONE;
 
     const auto out = hist ? net.evaluate(p, *hist) : net.evaluate(p);
+    float wdl[3] = {out.wdl[0], out.wdl[1], out.wdl[2]};
+    using OutT = std::remove_const_t<decltype(out)>;
+    MirrorView<OutT, NetT> mv;
+    if (mirror_avg) {
+        run_mirror_view(p, net, hist, mv);
+        for (int i = 0; i < 3; ++i) wdl[i] = 0.5f * (wdl[i] + mv.out.wdl[i]);
+    }
     // WDL head is side-to-move POV.
-    const float pwin = out.wdl[0], ploss = out.wdl[2];
+    const float pwin = wdl[0], ploss = wdl[2];
 
     Move best = ml.moves[0];
     float best_score = -std::numeric_limits<float>::infinity();
@@ -202,6 +251,7 @@ Move bestmove_net_impl(const PositionState& p, const std::vector<std::uint64_t>&
         const Move m = ml.moves[i];
         float sc = out.scores[move_from(m) * 64 + move_to(m)];
         if (move_type(m) == MT_PROMO) sc += out.promo_logit[move_promo(m)];
+        if (mirror_avg) sc += mv.score_for(m);
 
         const PositionState child = apply(p, m);
         if (insufficient_material(child)) {
@@ -235,8 +285,9 @@ Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_
 }
 
 Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                  const nn::Net& net, std::int64_t own_time_ms, const nn::NetHistory& hist) {
-    return bestmove_net_impl(p, key_history, net, own_time_ms, &hist);
+                  const nn::Net& net, std::int64_t own_time_ms, const nn::NetHistory& hist,
+                  bool mirror_avg) {
+    return bestmove_net_impl(p, key_history, net, own_time_ms, &hist, mirror_avg);
 }
 
 Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& key_history,
@@ -245,8 +296,9 @@ Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& ke
 }
 
 Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                    const nn::NetQ& net, std::int64_t own_time_ms, const nn::NetHistory& hist) {
-    return bestmove_net_impl(p, key_history, net, own_time_ms, &hist);
+                    const nn::NetQ& net, std::int64_t own_time_ms, const nn::NetHistory& hist,
+                    bool mirror_avg) {
+    return bestmove_net_impl(p, key_history, net, own_time_ms, &hist, mirror_avg);
 }
 
 }  // namespace lo::engine

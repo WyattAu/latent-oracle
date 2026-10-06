@@ -1,5 +1,7 @@
 #include "position.hpp"
 
+#include <array>
+#include <bit>
 #include <cstdlib>
 
 namespace lo {
@@ -195,6 +197,65 @@ PositionState apply(const PositionState& p, Move m) {
 
     n.zobrist = key;
     return n;
+}
+
+
+namespace {
+// reverse the bit order within each byte: square s (a1 = bit 0) -> s ^ 7
+constexpr std::array<std::uint8_t, 256> makeBitReverse() {
+    std::array<std::uint8_t, 256> t{};
+    for (int i = 0; i < 256; ++i) {
+        std::uint8_t r = 0, v = static_cast<std::uint8_t>(i);
+        for (int b = 0; b < 8; ++b) {
+            r = static_cast<std::uint8_t>((r << 1) | (v & 1));
+            v = static_cast<std::uint8_t>(v >> 1);
+        }
+        t[i] = r;
+    }
+    return t;
+}
+constexpr std::uint64_t mirror_bb(std::uint64_t bb, const std::array<std::uint8_t, 256>& t) {
+    std::uint64_t out = 0;
+    for (int i = 0; i < 8; ++i) {
+        const auto byte = static_cast<std::uint8_t>(bb >> (i * 8));
+        out |= static_cast<std::uint64_t>(t[byte]) << (i * 8);
+    }
+    return out;
+}
+constexpr std::uint8_t mirror_castling(std::uint8_t c) {
+    return static_cast<std::uint8_t>(((c & 0x1) << 1) | ((c & 0x2) >> 1) |
+                                      ((c & 0x4) << 1) | ((c & 0x8) >> 1));
+}
+}  // namespace
+
+PositionState mirror_position(const PositionState& p) {
+    static constexpr auto kBitRev = makeBitReverse();
+    PositionState m{};
+    for (int c = 0; c < 2; ++c)
+        for (int pt = 0; pt < PIECE_NB; ++pt)
+            m.pieces[c][pt] = mirror_bb(p.pieces[c][pt], kBitRev);
+    m.ep_square = (p.ep_square == NO_EP) ? NO_EP
+                                         : static_cast<std::uint8_t>(p.ep_square ^ 7);
+    m.castling = mirror_castling(p.castling);
+    m.side_to_move = p.side_to_move;
+    m.halfmove = p.halfmove;
+    m.fullmove = p.fullmove;
+    // zobrist is not read by inference, but recompute so the mirror stays a
+    // valid PositionState for any caller that hashes it
+    m.zobrist = 0;
+    for (int c = 0; c < 2; ++c)
+        for (int pt = 0; pt < PIECE_NB; ++pt) {
+            std::uint64_t bb = m.pieces[c][pt];
+            while (bb) {
+                const int sq = std::countr_zero(bb);
+                bb &= bb - 1;
+                m.zobrist ^= ZOBRIST.piece[c][pt][sq];
+            }
+        }
+    m.zobrist ^= ZOBRIST.castle[m.castling];
+    if (m.ep_square != NO_EP) m.zobrist ^= ZOBRIST.ep[m.ep_square & 7];
+    if (m.side_to_move != 0) m.zobrist ^= ZOBRIST.side;
+    return m;
 }
 
 }  // namespace lo

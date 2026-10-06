@@ -43,4 +43,11 @@ inline std::string move_to_uci(Move m) {
     return s;
 }
 
+// Mirror a position across the vertical axis (a<->h, b<->g, ...):
+// square s -> s ^ 7. Castling rights swap (WK<->WQ, BK<->BQ); the side to
+// move, clocks and piece colors are unchanged. Used for mirror-averaged
+// inference (UCI MirrorAvg): the network's square embeddings are not
+// mirror-equivariant, so averaging the two views cancels part of that bias.
+PositionState mirror_position(const PositionState& p);
+
 }  // namespace lo
