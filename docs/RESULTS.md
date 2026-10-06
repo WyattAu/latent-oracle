@@ -134,6 +134,47 @@ file-mirrored position must be the file-flip of the choice in the original;
 holds on all four test positions), and wired into CI, so the experiment is
 ready to run; only the measurement is missing.
 
+## DiffuSearch — REJECTED by a strength test its own gate could not see (2026-10-06)
+
+The moonshot's verdict metric was **a0-match**: does the denoised policy
+predict the move a human played? Measured three ways on the epoch-0
+checkpoint (loss 0.0076 on the training objective):
+
+| measurement | value | what it actually measures |
+|---|---|---|
+| training-time `a0 match` printout | **0.971** | **invalid.** It masks only half the target region, so the future state tokens stay visible and the move is trivially recoverable from the visible resulting position |
+| honest a0-match, whole target masked, T=16, legal gate | **0.330** | next-move predictability from the position alone (0.290 without the gate) |
+| **strength** — diffusion policy vs greedy play of the *same* BC weights | **0W 0D 12L** | playing strength |
+
+The strength harness (`trainer/diffusion_playout.py`) was validated before
+its verdict was believed: its inference path reproduces `infer_diffusion`'s
+a0 accuracy (27% vs 33%), and three separate harness bugs were found and
+fixed on the way — a duplicate-SEP off-by-one that shifted the a0 slot
+(agreement 0.08), a row 68 tokens shorter than the training shape (0.22), and
+a denoising schedule that read a0 before revealing any context. The
+0W-12D-0L result survived all of them.
+
+**Verdict: REJECT.** A policy that agrees with the played move ~30% of the
+time is far below the greedy policy of the same weights (which is roughly
+SF16-parity at -7 Elo). Diffusion action accuracy does not convert into
+playing strength here, and no amount of extra epochs on the same objective
+addresses that.
+
+**Consequences, which matter more than the verdict itself:**
+1. The pre-registered gate (kill < 0.25, double-down >= 0.40) would have
+   read 0.33 and spent ~9 more GPU-hours extending a rejected mechanism.
+   `moonshot_queue.sh` now records the verdict and skips stages 1, 2 and 5;
+   the AMZ pilot (an independent mechanism) proceeds as planned.
+2. **A next-move-prediction metric is not a strength metric.** Every future
+   mechanism needs a play-based or paired-eval verdict, not an accuracy
+   against human moves. This is now the standing rule for new gates.
+3. The training loop's eval was measuring a leaked quantity; it now prints the
+   honest score and labels the old one as leaked.
+
+Also fixed in the same pass (real bugs in the diffusion inference path):
+`decode_source_board` dropped castling and en-passant, so `infer_diffusion`'s
+legal-move gate **forbade castling outright** and mis-decoded EP states.
+
 ## Queued mechanism candidates (2026-10-06)
 
 Ranked by expected value per unit of compute, with the reason each is not
@@ -143,6 +184,7 @@ accuracy ranks low.
 
 | # | Mechanism | Rationale | Why deferred |
 |---|---|---|---|
+| 0 | **DiffuSearch variants** (LID, CTAP, different horizons) | — | **dropped**: the mechanism lost 0-12 to greedy play of the same weights; variants inherit the failure until the action-accuracy -> strength gap is explained |
 | 1 | **Volatility weighting** — upweight positions where the evaluation swung between consecutive plies (a free proxy for "tactically critical", available in the shard without extra SF work) | directly targets the measured bottleneck; needs no new labels | the labeler would have to emit a per-record delta, and the labeler is mid-run on the critical path. Resumability makes the change cheap later, but not free of risk |
 | 2 | **MirrorAvg at higher N** | already implemented, mapping-verified and CI-gated; +38cp paired sign is encouraging | needs ~2500 paired positions (~1-2 h of a contended box) to resolve |
 | 3 | **Policy-aware hard-example mining** — upweight positions where the *current* policy's greedy move loses >= 200cp vs SF | the direct version of volatility weighting on the model's own errors rather than the game's | requires one inference pass per labeled position; `mine_blindspots.py` already covers the value-head variant and has never been run on real moonshot output |
