@@ -63,7 +63,10 @@ struct Session {
     std::optional<lo::nn::Net> net;      // FP32 ("LONW")
     std::optional<lo::nn::NetQ> netq;    // INT8 ("LOQW"); preferred when set
     int recycle = 1;                     // RecyclePasses (looped trunk)
-    bool mirror_avg = false;             // MirrorAvg (policy mirror averaging)
+    bool mirror_avg = true;              // MirrorAvg (policy mirror averaging):
+                                         // +34.86 +/- 19.63 Elo over 400 games
+                                         // (RESULTS.md, 2026-10-07); costs one extra
+                                         // forward pass, still one decision per move
     float loopcd_alpha = 0.0f;           // LoopCD contrastive-decoding strength
 };
 
@@ -137,7 +140,7 @@ void handle_line(Session& s, const std::string& line) {
         std::cout << "id author Wyatt Au\n";
         std::cout << "option name WeightsFile type string default\n";
         std::cout << "option name RecyclePasses type spin default 1 min 1 max 8\n";
-        std::cout << "option name MirrorAvg type check default false\n";
+        std::cout << "option name MirrorAvg type check default true\n";
         std::cout << "option name LoopCDAlpha type string default 0.0\n";
         std::cout << "uciok\n" << std::flush;
     } else if (cmd == "isready") {
