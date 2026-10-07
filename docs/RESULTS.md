@@ -243,6 +243,41 @@ labeler, which is the critical path.
 documented evidence behind them: data scaling (50M -> 130M, running) and RL
 (AV, then GRPO).
 
+## Three v3 state fields were inert: castle, EP, rating (2026-10-06)
+
+Found while previewing the AV recipe on idle GPU. `train.py` calls the model as
+`model(codes, side)` — it never passes castling, en-passant or rating, so those
+embeddings are always fed index 0. Because they are zero-initialized, and
+because embedding gradients only reach the row that was used, every other row
+stays exactly zero **forever**. Verified on a real 2-epoch run:
+
+| tensor | nonzero after training | interpretation |
+|---|---|---|
+| `castle_emb.weight` | 256 / 4096 | exactly one row (mask 0) |
+| `ep_emb.weight` | 256 / 2304 | exactly one row (file 0 = none) |
+| `rating_emb.weight` | 256 / 4096 | exactly one row (bucket 0) |
+| `king_bucket_emb.weight` | 1024 / 4096 | four rows — **live** (computed inside forward from the board) |
+| `hist_emb`, `hist_gate` | 0 | never applied: no history is passed |
+
+So of the v3 additions only the material-bucketed value head and the
+king-quadrant embedding ever contribute. There is no train/inference bug — the
+engine passes the real values, and the corresponding weights are zero, so the
+contribution is zero on both sides — but the fields cannot earn Elo because
+nothing ever trains them.
+
+`--state-aware` now feeds the record's real castle mask and EP file (EP index
+= file+1, 0 = none) and is **off by default**, so the armed AV run keeps its
+pre-registered recipe. With it, the trained rows go from 1 to 16 (castle) and
+1 to 9 (EP), confirming the path is live.
+
+**Measured effect at n=300** (1M-position preview, identical recipe, only the
+flag differing): state-blind 0.507, state-aware 0.483, against a BC-v1 base of
+0.510 — i.e. no gain, and the difference is under one standard error at this
+sample size. A 2000-position rerun is in flight. The genuinely new information
+is EP rights (the board cannot tell you a pawn just moved two squares);
+castling rights are largely derivable from the board, so the ceiling here is
+low. Queued as a candidate, not adopted.
+
 ## Queued mechanism candidates (2026-10-06)
 
 Ranked by expected value per unit of compute, with the reason each is not
