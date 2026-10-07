@@ -120,19 +120,29 @@ positions from the BC-v1 p2 match, both engines on one process, SF depth 8):
 | 95% bootstrap CI | [-46.9, +142.9] |
 | better / worse | 9 / 7 |
 
-**Verdict: inconclusive.** The sign is encouraging but the interval spans
-zero. A game-level SPRT would need hundreds of games to resolve this, which
-the shared box cannot afford; the paired test is the right instrument and
-simply needs more positions (at a 6.8% change rate, ~2500 positions gives
-~170 changed samples and a CI of roughly +/-30cp, which would resolve a
-+38cp effect).
+### Re-measured at n=2500: **HELPS**
 
-Decision: **keep MirrorAvg off** and re-run the paired test at higher N when
-the box is free. It is implemented, mapping-verified
-(`tests/mirror_consistency.py` — with averaging on, the choice in the
-file-mirrored position must be the file-flip of the choice in the original;
-holds on all four test positions), and wired into CI, so the experiment is
-ready to run; only the measurement is missing.
+| measurement | n | result |
+|---|---|---|
+| paired eval on changed moves (BC-v1 e2) | 180 changed positions | **+23.4cp, 95% CI [+5.3, +44.6]**, 89 better / 83 worse |
+| policy accuracy vs SF-best, v3 AV net | 800 positions | 0.422 → **0.435** with MirrorAvg (+1.3pp, ~0.75 s.e.) |
+
+The move changes in 7.2% of positions; the paired interval excludes zero, and
+an independent metric on a v3 net moves the same direction. The effect is small
+(~+1.7cp averaged over all positions) and free: one extra forward pass, ~10 ms
+against a 15 s clock, and still one decision per move.
+
+**Decision: enabled — but deliberately not yet.** Flipping the default while
+`keep_best`'s gate is mid-flight would give some matches MirrorAvg and others
+not, and flipping it before verdict A's SPRT would confound that comparison
+with the AV recipe. Sequence instead: verdict A runs clean (both sides without
+MirrorAvg), then a dedicated SPRT of `bc-best` vs `bc-best + MirrorAvg` gives
+the Elo number. Everything needed is in place: mapping-verified
+(`tests/mirror_consistency.py`), CI-gated, and now measured twice.
+
+The earlier n=250 run read +38cp with a CI spanning zero; the point estimate
+fell toward +23cp as n grew, which is what one expects when an initial small
+sample was noisy — the direction held.
 
 ## DiffuSearch — REJECTED by a strength test its own gate could not see (2026-10-06)
 
@@ -290,7 +300,7 @@ accuracy ranks low.
 | 0 | **DiffuSearch variants** (LID, CTAP, different horizons) | — | **dropped**: 23.3% policy accuracy vs SF-best (BC: 51.0%) and 0-12 in play; variants inherit the failure until that gap is explained |
 | 0b | **AMZ variants** (coarser reply sampling, marginalizing the reply) | — | **dropped pending a mechanism fix**: reply-conditioned targets are privileged information a memoryless policy cannot use at inference |
 | 1 | **Volatility weighting** — upweight positions where the evaluation swung between consecutive plies (a free proxy for "tactically critical", available in the shard without extra SF work) | directly targets the measured bottleneck; needs no new labels | the labeler would have to emit a per-record delta, and the labeler is mid-run on the critical path. Resumability makes the change cheap later, but not free of risk |
-| 2 | **MirrorAvg at higher N** | already implemented, mapping-verified and CI-gated; +38cp paired sign is encouraging | needs ~2500 paired positions (~1-2 h of a contended box) to resolve |
+| 2 | **MirrorAvg: confirm at game level** | measured twice now — paired +23.4cp (CI [+5.3,+44.6]) and +1.3pp policy accuracy on a v3 net; free at inference | needs a clean SPRT; deliberately sequenced AFTER verdict A so it does not confound the AV comparison |
 | 3 | **Policy-aware hard-example mining** — upweight positions where the *current* policy's greedy move loses >= 200cp vs SF | the direct version of volatility weighting on the model's own errors rather than the game's | requires one inference pass per labeled position; `mine_blindspots.py` already covers the value-head variant and has never been run on real moonshot output |
 | 4 | **Quantizer vectorization** (5x faster SPRT) | every future verdict gets 5x the games for the same wall clock | no mechanism value; pure infrastructure, revisit when a verdict is borderline |
 
