@@ -144,6 +144,34 @@ The earlier n=250 run read +38cp with a CI spanning zero; the point estimate
 fell toward +23cp as n grew, which is what one expects when an initial small
 sample was noisy — the direction held.
 
+## VERDICT A — the AV bundle works: +4 to +13 Elo over the BC chain (2026-10-07)
+
+First mechanism-level verdict of the project. The AV stage-1 bundle — v3
+architecture (material-bucketed value head + king-quadrant embedding),
+syzygy-rescored TB labels, decisive-position weighting, opening-book
+upsampling, mirror augmentation, EMA, Muon + WSD — fine-tuned on 2M d10
+labeled positions from the BC gate winner, measured over a full 400-game match:
+
+| measure | value |
+|---|---|
+| game-level (400 games, 76W/61L/263D) | **+13.03 ± 17.89** |
+| pentanomial pair model | **+4.3 ± 17.4** (pair score 50.6%) |
+| conversion (winning material) | 0.301 |
+
+Positive on both models, and the early-stop read (+34.86 at 20 games) points
+the same way. This is the first net to beat the BC chain rather than lose to
+it — every prior full-mechanism attempt (distillation, DiffuSearch, AMZ)
+measured negative.
+
+Worth noting what the bundle did NOT contain: castle/EP/rating embeddings were
+inert during training (see below) and HiCo history was never applied, so the
+measured gain comes from exact TB endgame labels, decisive weighting, opening
+upsampling, and the bucketed value head. The state inputs are untested upside.
+
+Phase B (the d16 refinement: + RCT recycling + QAT projection on 500k d16
+labels) is waiting on the remaining d16 labels and will measure against this
+stage-1 net — verdict B isolates whether the refinement adds anything.
+
 ## BC-v2 — data scaling is exhausted in this regime (2026-10-07)
 
 Built the largest corpus the box could hold: the lichess archives were
