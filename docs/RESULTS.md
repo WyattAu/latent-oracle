@@ -144,6 +144,35 @@ The earlier n=250 run read +38cp with a CI spanning zero; the point estimate
 fell toward +23cp as n grew, which is what one expects when an initial small
 sample was noisy — the direction held.
 
+## BC-v2 — data scaling is exhausted in this regime (2026-10-07)
+
+Built the largest corpus the box could hold: the lichess archives were
+originally capped at 25M positions/month, so the same 56 GB yielded 80M more
+records (40M/month) for a **130M-position** corpus, then trained bc_v1's exact
+recipe on it — with one deliberate change: **1 epoch over 130M unique** shows
+130M positions against bc_v1's 150M over 3 epochs, so the comparison is
+compute-matched and isolates data diversity.
+
+| run | corpus | positions seen | verdict vs BC-v1 gate winner |
+|---|---|---|---|
+| BC-v2 | 130M unique | 130M | game-level **+2.61 ± 18.11**, pair model **−6.1 ± 17.4** (400 games) |
+
+**Statistically a dead heat.** Two conclusions:
+
+1. **The +51-per-10x scaling trend does not continue here.** 2.6x more unique
+   data bought nothing measurable. bc_v1's recipe was already at the
+   data-quality ceiling for this corpus (Lichess games, SF-d10/d16 targets) —
+   more data of the same kind is not a lever anymore. Future Elo must come
+   from mechanisms or from *better* labels (deeper/more accurate), not more of
+   the same.
+2. **No regression either**: bc_v2 saw each position once and matches a net
+   that saw its data three times. The 70% draw rate (281/400) keeps the CI
+   tight, so this null is well-measured, not underpowered.
+
+Practically: the 7.75 GB corpus and mask sidecar are kept (they are the
+natural substrate for the next mechanism-level run), and the GPU was handed
+back to the AV verdict, which the same watcher had queued behind it.
+
 ## DiffuSearch — REJECTED by a strength test its own gate could not see (2026-10-06)
 
 The moonshot's verdict metric was **a0-match**: does the denoised policy
