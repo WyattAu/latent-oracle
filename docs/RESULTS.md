@@ -132,6 +132,16 @@ an independent metric on a v3 net moves the same direction. The effect is small
 (~+1.7cp averaged over all positions) and free: one extra forward pass, ~10 ms
 against a 15 s clock, and still one decision per move.
 
+### Game-level confirmation (2026-10-07): **+34.86 ± 19.63 Elo**
+
+The full 400-game match (bc-best vs bc-best with MirrorAvg, same weights,
+same openings): 85W/45L/270D, pair-score 55.0%. The paired position-level
+prediction (+23.4cp CI [+5.3,+44.6]) pointed the right way and the game
+verdict is now 1.8 s.e. from zero — a real, cheap gain. MirrorAvg should be
+**enabled by default** for all subsequent nets; the only reason it has not
+been flipped in the running binaries is that the keep-best gate was mid-flight
+when the evidence landed, and verdict A had to stay clean.
+
 **Decision: enabled — but deliberately not yet.** Flipping the default while
 `keep_best`'s gate is mid-flight would give some matches MirrorAvg and others
 not, and flipping it before verdict A's SPRT would confound that comparison
