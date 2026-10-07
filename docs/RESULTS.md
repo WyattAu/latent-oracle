@@ -239,16 +239,16 @@ minute per net instead of hours of games:
 | bc_v1f e2 | 0.500 | ~0 (noisy-neutral; overlaps e0 within noise) |
 | bc_v0 e1 | 0.485 | −72 |
 
-**Bound of the metric, learned from verdict A.** The AV stage-1 net measures
-0.494 policy accuracy — flat against the BC base's 0.510 — yet wins
-+4-to-+13 Elo in games. The metric detects *policy-shape* changes reliably
-(it caught DiffuSearch's 23% collapse) but can miss *targeted* improvements:
-the AV gains came from exact TB endgame technique and decisive-position
-handling, which show up in game outcomes rather than in "picked SF's #1 move"
-on random middlegame positions. Rule of thumb: policy accuracy is a cheap
-REJECTION gate (a big drop means the policy is damaged); it is not a substitute
-for a game verdict when the mechanism is expected to help only in a specific
-phase of the game.
+**Two methodology rules for the metric, both learned the hard way.** First,
+comparisons must use the SAME position set: the first 300 shard records score
+~0.51 for BC-v1 while the first 1000 score 0.461 — subset composition alone
+moves the rate by ±5pp, which is bigger than most effects. On identical
+positions (n=1000) the metric ranks verdict A correctly: AV stage-1 0.489 >
+BC-v1 e2 0.461, matching +4-to-+13 Elo. Second, it is a *rejection* gate, not
+a strength substitute: it caught DiffuSearch's 23% collapse, but a mechanism
+expected to help only in a specific game phase (AV's TB endgame technique)
+gains games without moving top-1 agreement much. Cheap filter first, game
+verdict to confirm.
 
 **This also calibrates the project.** BC-greedy sits at 51% against SF-best
 and plays at roughly -7 Elo versus SF16; DiffuSearch sits at 23% and loses
