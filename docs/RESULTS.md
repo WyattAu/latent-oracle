@@ -239,6 +239,17 @@ minute per net instead of hours of games:
 | bc_v1f e2 | 0.500 | ~0 (noisy-neutral; overlaps e0 within noise) |
 | bc_v0 e1 | 0.485 | −72 |
 
+**Bound of the metric, learned from verdict A.** The AV stage-1 net measures
+0.494 policy accuracy — flat against the BC base's 0.510 — yet wins
++4-to-+13 Elo in games. The metric detects *policy-shape* changes reliably
+(it caught DiffuSearch's 23% collapse) but can miss *targeted* improvements:
+the AV gains came from exact TB endgame technique and decisive-position
+handling, which show up in game outcomes rather than in "picked SF's #1 move"
+on random middlegame positions. Rule of thumb: policy accuracy is a cheap
+REJECTION gate (a big drop means the policy is damaged); it is not a substitute
+for a game verdict when the mechanism is expected to help only in a specific
+phase of the game.
+
 **This also calibrates the project.** BC-greedy sits at 51% against SF-best
 and plays at roughly -7 Elo versus SF16; DiffuSearch sits at 23% and loses
 every game. So *policy accuracy against a strong reference* is the metric
