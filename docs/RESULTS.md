@@ -501,9 +501,18 @@ the policy too little to read a reward trend.
 cd /home/wyatt/data && setsid nohup bash grpo_phase.sh >/dev/null 2>&1 &
 ```
 It waits for nothing (av_phase is complete), warm-starts from the verdict-B
-winner (`runs/av_v3_s2/net_e1.pt`), trains 1500 steps (~2-3 h unloaded), and
-runs its own SPRTs with the promotion rule (beat base AND no pool
-regression). Expected first signal: whether r_mean climbs from its ~0.01
+winner (`runs/av_v3_s2/net_e1.pt`), trains 1500 steps, and runs its own SPRTs
+with the promotion rule (beat base AND no pool regression).
+
+**Cost correction (2026-10-08, measured on the resumed run):** the "~2-3 h"
+estimate in the first version of this entry was wrong by ~30x. Each step
+needs 128 groups x 16 moves = 2048 REAL depth-12 analyses (4-engine pool):
+~17 min/step under external load, ~9 min unloaded -> 1500 steps is roughly
+**1-4 days depending on the box**, checkpointed at 500/1000/1500 so
+intermediate nets can be evaluated at any time. A telling number from the
+failed NaN run: it "finished" 1500 steps in 2 h because a NaN policy samples
+garbage actions that skip the SF call entirely -- its speed was itself a
+symptom. Expected first signal: whether r_mean climbs from its ~0.01
 baseline. If r_mean stays flat for 500 steps, GRPO-as-configured is another
 null and the SF-pool reward design (not the optimizer) is what to revisit.
 
