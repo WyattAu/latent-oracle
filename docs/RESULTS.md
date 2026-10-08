@@ -132,7 +132,25 @@ an independent metric on a v3 net moves the same direction. The effect is small
 (~+1.7cp averaged over all positions) and free: one extra forward pass, ~10 ms
 against a 15 s clock, and still one decision per move.
 
-### Game-level confirmation (2026-10-07): **+34.86 ± 19.63 Elo**
+### CORRECTED (2026-10-08): the game verdict was read backwards — MirrorAvg HURTS
+
+A PGN recount of the same 400 games (counting points by engine NAME rather
+than trusting the reported Elo line) shows the opposite of what was recorded
+below: **plain 220.0 (55.0%) vs mirror 180.0 (45.0%)**. fastchess reports Elo
+from the FIRST engine's perspective; `+34.86` meant *plain* (MirrorAvg off)
+was better. MirrorAvg therefore **hurts by roughly 35 Elo**, and the default
+was reverted to OFF.
+
+The uncomfortable part: two independent cheap measurements — the paired
+eval delta (+23.4cp) and the v3 policy-accuracy delta (+1.3pp) — both pointed
+the WRONG way while agreeing with each other. Cheap proxies are not evidence
+of game outcomes, however much they correlate on the sample that generated
+them. A cross-check of the sign convention (the phase_post net-vs-SF matches
+reporting −32 for the net, matching its established rating) would have caught
+this before the default flip; that check is now a standing rule for every
+verdict: **recount the PGN by engine name before believing a direction.**
+
+### Original (misread) entry kept for the record
 
 The full 400-game match (bc-best vs bc-best with MirrorAvg, same weights,
 same openings): 85W/45L/270D, pair-score 55.0%. The paired position-level
