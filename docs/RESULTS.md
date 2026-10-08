@@ -485,6 +485,28 @@ bc_v2 epoch took ~30 h at 36-40% GPU utilization because the python batch
 pipeline starves under contention. Everything is sized and documented to
 RESUME when the box frees; nothing needs re-decision.
 
+## GRPO — compute-blocked, handoff state (2026-10-08)
+
+All GRPO correctness bugs are fixed and verified finite at the real k=16
+(validation gate with padding, KL nan_to_num, padded-ratio nan_to_num,
+non-finite update skip, NaN-save refusal — see the entry above). The
+production run (groups=128, k=16, depth 12, 1500 steps) was killed because
+the box's external load stretches a step from 5 s (unloaded) to an estimated
+17 min: 1500 steps would be 3-6 weeks. A reduced probe cannot answer the
+learning question either — 120 steps at lr 1e-5 inside a 0.03 KL budget moves
+the policy too little to read a reward trend.
+
+**Resume procedure** (when the box frees up):
+```
+cd /home/wyatt/data && setsid nohup bash grpo_phase.sh >/dev/null 2>&1 &
+```
+It waits for nothing (av_phase is complete), warm-starts from the verdict-B
+winner (`runs/av_v3_s2/net_e1.pt`), trains 1500 steps (~2-3 h unloaded), and
+runs its own SPRTs with the promotion rule (beat base AND no pool
+regression). Expected first signal: whether r_mean climbs from its ~0.01
+baseline. If r_mean stays flat for 500 steps, GRPO-as-configured is another
+null and the SF-pool reward design (not the optimizer) is what to revisit.
+
 ## Queued mechanism candidates (2026-10-06)
 
 Ranked by expected value per unit of compute, with the reason each is not
