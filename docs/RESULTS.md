@@ -438,6 +438,53 @@ the patch targeted the old inline call. The first A/B produced
 announced itself. When an A/B returns two identical artifacts, suspect the
 plumbing before the mechanism.
 
+## Verdict B — the d16 RCT/QAT refinement: +18.6 ± 24.2, the only upward game signal (2026-10-08)
+
+300 games, av-stage2 (d16 fine-tune + RCT recycling + QAT projection) vs
+av-stage1 (the d10 bundle). fastchess reported −18.55 ± 24.16 from stage 1's
+perspective — the stage-2 net is ~+19 Elo up, within noise at 300 games
+(1σ ≈ 24), but it is the only mechanism measurement of the entire session
+that points UP at game level. Follow-up options: extend the match to 600-800
+games for significance, or fold the RCT/QAT stage into the next full run and
+let its verdict speak at scale. Phase B's TB sidecar was generated from the
+335k-record prefix of the d16 shard (the labeler was still appending); the
+remaining ~165k records carry no TB rows — harmless, but a full-shard sidecar
+would be marginally stronger.
+
+## GRPO — two NaN sources fixed; the first real launch was destroyed by them
+(2026-10-08)
+
+The first GRPO run at production size printed `pg nan kl nan` from the first
+logged update and saved NaN weights (the later SPRT vs the SF pool — 0W/368L
+— is simply what a NaN net scores; the promotion rule correctly refused it).
+Two independent bugs:
+
+1. KL(base||new) summed `blp.exp() * (blp - lp)` over the masked distribution:
+   illegal squares are −inf in both, so the term is 0 × (−inf − −inf) = NaN.
+   nan_to_num encodes the correct convention (p = 0 contributes nothing).
+2. The k-padding fix left padded slots with −inf in both new and base
+   log-probs, so their importance ratio was exp(−inf − −inf) = NaN, and
+   NaN × adv(0) stayed NaN. Zeroed with nan_to_num.
+
+Additional guards: non-finite losses are skipped (the update would NaN every
+weight permanently), checkpoints are only saved when all weights are finite,
+and the step log carries the skip counter. The earlier smoke test had exported
+checkpoints DESPITE the NaN — "it exported" is not a finiteness check.
+
+Also fixed the same day: the GRPO validation gate asserted legality on padded
+dummy actions (index 0 = a1→a1 is never legal), killing the run at startup
+whenever a position had fewer than k legal moves.
+
+## Box-capacity reality (2026-10-08)
+
+The shared box's external load (another session's Lean/Go/compiler builds
+driving load average 20-47 on 6 cores) sets hard throughput limits:
+GRPO at production size (groups=128, k=16, depth 12, 4-engine pool) ran at
+5.1 s/step overnight and >25× slower under daytime load; the 130M-position
+bc_v2 epoch took ~30 h at 36-40% GPU utilization because the python batch
+pipeline starves under contention. Everything is sized and documented to
+RESUME when the box frees; nothing needs re-decision.
+
 ## Queued mechanism candidates (2026-10-06)
 
 Ranked by expected value per unit of compute, with the reason each is not
