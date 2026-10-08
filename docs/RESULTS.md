@@ -172,7 +172,30 @@ The earlier n=250 run read +38cp with a CI spanning zero; the point estimate
 fell toward +23cp as n grew, which is what one expects when an initial small
 sample was noisy — the direction held.
 
-## VERDICT A — the AV bundle works: +4 to +13 Elo over the BC chain (2026-10-07)
+## VERDICT A — CORRECTED: the AV bundle did NOT beat the BC chain (2026-10-07/08)
+
+The 400-game match numbers were first reported with the sign backwards
+(fastchess Elo is from the FIRST engine's perspective; bc-best was listed
+first). Corrected reading:
+
+| measure | value | correct interpretation |
+|---|---|---|
+| game-level (400 games, bc-best 76W/61L/263D) | **+13.03 ± 17.89 for bc-best** | the BC chain is ~+13 over the AV bundle (within noise) |
+| pentanomial pair model | **+4.3 ± 17.4 for bc-best** | same direction, same noise |
+
+So verdict A is a **null-to-slightly-negative**: the AV bundle (v3 bucketed
+value head, TB labels, decisive weighting, opening upsampling, Muon/WSD
+fine-tune on 2M d10 labels) did not measurably improve on the BC chain it
+warm-started from. Given 263 draws the CI is tight; this null is well-measured.
+
+**Verdict B, correctly read**: the d16 RCT/QAT refinement (av-s2 vs av-s1,
+300 games, stage-1 listed first) reported **−18.55 ± 24.16** for stage 1 —
+i.e. the refinement is **+18.6 ± 24.2 over stage 1**. Positive direction, not
+significant at 300 games, but it is the ONLY mechanism measurement of the
+session that points up at game level. RCT/QAT on deeper labels is the
+strongest candidate for a properly powered confirmation (500-800 games).
+
+## VERDICT A — original misread entry (kept for the record): "the AV bundle works: +4 to +13" (2026-10-07)
 
 First mechanism-level verdict of the project. The AV stage-1 bundle — v3
 architecture (material-bucketed value head + king-quadrant embedding),
