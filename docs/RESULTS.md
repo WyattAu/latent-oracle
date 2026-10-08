@@ -366,6 +366,37 @@ is EP rights (the board cannot tell you a pawn just moved two squares);
 castling rights are largely derivable from the board, so the ceiling here is
 low. Queued as a candidate, not adopted.
 
+## Volatility weighting — null at preview scale (2026-10-08)
+
+Queued mechanism #1, now tested. `trainer/train.py --volatility-weight W`
+upweights positions whose eval swung vs the previous ply (|delta| >= 150cp ->
+weight W). Volatility is a free proxy for tactically-critical positions:
+records are in game order, the delta needs no extra Stockfish work, and game
+boundaries are rejected by a connectivity filter (sides alternate, board
+differs in 2-4 squares, piece count within 1).
+
+Measured with the preview A/B (1M positions, identical recipe, warm-start from
+BC-v1 e2, same 1000 evaluation positions):
+
+| arm | policy accuracy vs SF-best |
+|---|---|
+| AV bundle, no volatility | 455/1000 = 0.455 |
+| + volatility weighting (W=2.0) | 459/1000 = 0.459 |
+
++0.4pp — inside noise. Honest caveats: a single design point (W=2.0/150cp), a
+small preview corpus, and policy accuracy is known to under-credit tactical
+robustness (verdict A's lesson). But the cheap filter is the reason it exists:
+a null here does not justify game-level compute while verdict B and GRPO are
+queued. The flag stays (default off, harmless), and the harness to re-test at
+full scale exists.
+
+Also fixed on the way: the flag silently never reached `build_batch` — the
+prefetch refactor had moved the call site into the `_make_batch` wrapper and
+the patch targeted the old inline call. The first A/B produced
+**byte-identical checkpoints** (same md5), which is how the wiring bug
+announced itself. When an A/B returns two identical artifacts, suspect the
+plumbing before the mechanism.
+
 ## Queued mechanism candidates (2026-10-06)
 
 Ranked by expected value per unit of compute, with the reason each is not
