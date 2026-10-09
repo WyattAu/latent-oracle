@@ -22,33 +22,46 @@ unless noted. Elo ± CI from the game-level MLE; pair-model numbers where run.
 | **BC-v1** | 50M human (2.5×), 3 ep | p1: **−32 ± 35** (first run, full 200); p2: **−7 ± 34 (49.0%)** | **DATA SCALING CONFIRMED**: +51 Elo over BC-v0 with non-overlapping CIs; near-parity with a 2-ply-searching SF16 |
 | **H2** | identical labels, decisiveness-weighted loss | p1: **−280 ± 121** (24-game early stop) | **MECHANISM CONFIRMED**: +156 vs the −436 uniform baseline. SF labels aren't poison; uniform loss on them was. Still below BC — imitation precision gap persists (AV phase attacks it properly) |
 
-## GRPO throughput — measured, and why depth-10+ SF RL is not yet runnable here
+## GRPO throughput — measured cost, and the real blocker (supersedes prior estimate)
 
-**Supersedes the "GRPO is merely slow" reading.** Two distinct failure modes were
-separated on the shared 6-core box:
+Three separate things were conflated. Measured, in order:
 
-1. **Real hang (fixed).** `SFEval` in `trainer/grpo_train.py` did blocking
-   `stdout.readline()` with no liveness check. When a forked grandchild inherits
-   the pipe, a dead engine's stdout never EOFs, so `readline()` waits forever.
-   The first production launch sat 8 h at ~15% CPU without reaching step 5. Now
-   every read checks `poll()` first and the caller respawns the engine and scores
-   the move 0 instead of blocking.
-2. **Genuine contention (not fixable in code).** With the hang removed, a reduced
-   probe (groups 64 x k 16 = 1024 depth-10 analyses/step, 3 engines) still took
-   >50 min to reach step 5 — indistinguishable from a hang, but healthy: all 3 SF
-   children alive, each at ~14% CPU, under **load average 33 on 6 cores**. The box
-   is oversubscribed ~5x by unrelated work, so each engine runs at ~1/6 speed.
+**1. A real hang (fixed, committed).** `SFEval` blocked on `stdout.readline()`
+with no liveness check; a forked grandchild inheriting the pipe means a dead
+engine never EOFs. The first production launch sat 8 h at ~15% CPU without
+reaching step 5. Every read now checks `poll()` first, and the caller respawns
+the engine and scores the move 0. Log cadence is every step (was every 5), with
+elapsed minutes, because a 5-step interval on a slow box is indistinguishable
+from a hang.
 
-Measured consequence: step cost scales with `groups * k * depth` and with
-external load, so a 1500-step run is not a "slow job" — it is not runnable at
-production size on this machine while contention persists. Two code-side
-mitigations are in:
+**2. Actual SF cost (measured, one engine, trivial opening positions).**
 
-- per-step logging (was every 5 steps, which is visually identical to a hang)
-- elapsed-minutes in each step line, so throughput is measured, not guessed
+| depth | ms/analysis | rel. to d12 |
+|---|---|---|
+| 6 | 4.6 | 17x |
+| 8 | 6.9 | 11x |
+| 10 | 14.1 | 5.6x |
+| 12 | 78.4 | 1x |
 
-**Unblock conditions:** reduce external load, raise `sf_pool` once cores are
-actually free, or cut `depth`/`k` for probe-scale runs. No GRPO verdict exists.
+Production config is `groups=128 x k=16` = **2048 analyses/step**. At depth 10
+that is ~29 s/step, so **1500 steps is ~12 h of engine time**, not "days to
+weeks". The earlier 30x cost estimate was wrong and is retracted.
+
+**3. The actual blocker: this box is shared and memory-exhausted.** Measured
+while a reduced probe ran: `load average 41`, **0.0% CPU idle**, 363 MiB free
+RAM with **31.5 of 32 GB swap in use**, and the three SF children holding only
+21 s of CPU across 4 min of wall time. The load is five concurrent agent
+sessions, not background noise. On a free box step 1 completed in **18 s**; the
+very next step stalled because the box filled.
+
+**Conclusion:** GRPO is *not* intrinsically too slow. It is unrunnable *here*,
+right now, because the machine is oversubscribed and swapping. Correct prior
+note: an earlier revision of this entry blamed D-state I/O load and quoted
+steady 14% CPU per engine. Both were wrong -- `ps %cpu` is a lifetime average,
+not instantaneous, and the real cause is CPU saturation plus swap thrash.
+
+**Unblock conditions:** an idle box (or `sf_pool` sized to genuinely free
+cores) and depth 10 rather than 12. No GRPO verdict exists.
 
 ## Pending (armed chains)
 
