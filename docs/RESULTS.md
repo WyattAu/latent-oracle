@@ -120,6 +120,42 @@ PGN recount (158/300 = 52.67%); the fastchess txt's -18.55 is stage1's
 perspective (CLI order), not a ledger sign error; sprt_pentanomial.py had an
 engine-identity bug (fixed, d63dd50) that reported +6.9.
 
+## GRPO "stall" root-caused: per-op latency inflation from box contention (2026-10-09)
+
+Seven hours of the production run produced exactly one step. Diagnosis chain,
+for the record -- py-spy is unusable here (ptrace_scope=1), so the tools were
+`strace -f` on a probe plus `faulthandler.register(SIGUSR1)` dumps:
+
+1. The probe reproduced the pattern deterministically (step 1 fine, step 2
+   crawls). strace showed the main thread completing `bestmove` reads and then
+   going silent -- no syscalls for minutes while in state R: userspace spin
+   inside CUDA ops.
+2. Repeated SIGUSR1 dumps showed the frame ADVANCING across the whole step
+   (sampler line 218 -> update forward 295 -> rewards 274 -> forwards in
+   model.py). Nothing is stuck; every single operation is slowed.
+3. Microbenchmarks in the same windows are fast in isolation (0.1 ms per tiny
+   CUDA op; 12 ms per depth-10 SF eval), but a tiny 6-step probe needed
+   35+ min for ONE step while a 6-step groups=2/k=4 probe finished in 0.2
+   minutes at load 45. Cost scales with ops per step: production is
+   2048 SF evals + ~500 CUDA launches per step, each inflated to
+   seconds by sibling sessions (CPU load 45 with swap storms, GPU shared
+   with three other CUDA contexts). One step then takes hours.
+
+**The trainer code is exonerated.** The liveness/respawn path even proved
+itself during diagnosis: when two engines died, both were detected and
+respawned correctly.
+
+Countermeasures shipped (data repo c12bce8, e912314):
+- grpo_train.py resumes from the newest grpo_s*.pt in --out.
+- grpo_phase.sh requires a GPU with zero foreign compute processes, runs a
+  90-min step-rate watchdog (fresh per-run log; kill on 90 min without a new
+  step line; export-every 100 bounds checkpoint loss), and a re-armed phase
+  continues from checkpoints instead of restarting.
+
+The honest consequence: production GRPO completes only in genuinely quiet
+windows. The gates refuse degraded ones, the watchdog escapes mid-run
+degradation, and resume means progress accumulates across windows.
+
 ## Pending (armed chains)
 
 | Experiment | Gate |
