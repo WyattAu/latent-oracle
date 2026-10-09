@@ -63,6 +63,26 @@ not instantaneous, and the real cause is CPU saturation plus swap thrash.
 **Unblock conditions:** an idle box (or `sf_pool` sized to genuinely free
 cores) and depth 10 rather than 12. No GRPO verdict exists.
 
+## Verdict B confirmed and sharpened (2026-10-09): stage 2 +18.55 ± 24.16 (300 games)
+
+The +18.55 figure is CONFIRMED by a direct engine-name recount of the PGN
+(av-s2-vs-s1.pgn): stage2 scored 158/300 = 52.67% -> +18.55 Elo, result
+tokens all clean (68 × 1-0, 62 × 0-1, 170 draws). Still only ~0.77sigma --
+an 800-game confirmation is armed and queued behind the GRPO phase.
+
+Two traps documented so this does not resurface:
+
+- **fastchess txt perspective.** The final txt block for that match reads
+  `Elo: -18.55` -- from stage1's perspective, because av_phase listed stage1
+  first on the command line, while the PGN's first game has stage2 as White.
+  The txt Elo perspective follows CLI order, NOT PGN White order. Recount by
+  engine name from the PGN; treat txt perspective as untrusted.
+- **sprt_pentanomial.py had an engine-identity bug (fixed, d63dd50).** It
+  scored every game from White's side and never checked which engine held
+  which color, reporting White's aggregate (51%) as engine1's: +6.9 ± 20.1
+  where the true pair-model answer is +18.5 ± 20.1. Fixed and validated
+  against the direct recount: pair score 0.5267 = 158/300 exactly.
+
 ## Pending (armed chains)
 
 | Experiment | Gate |
