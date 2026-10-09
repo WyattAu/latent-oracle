@@ -83,43 +83,6 @@ Two traps documented so this does not resurface:
   where the true pair-model answer is +18.5 ± 20.1. Fixed and validated
   against the direct recount: pair score 0.5267 = 158/300 exactly.
 
-## GRPO stall root-caused (2026-10-09 evening): per-op latency inflation, not a hang
-
-The armed production run produced ONE step in 7 h. Diagnosis chain, for the
-record:
-
-- wchan showed the main thread blocked in `anon_pipe_read` with all four SF
-  engines idle in stdin-reads -- looked like a UCI desync. It was not.
-- `ptrace_scope=1` blocks py-spy on non-children, but
-  `faulthandler.register(SIGUSR1)` does not need ptrace: repeated SIGUSR1
-  dumps on a reproducing probe showed the thread ADVANCING through the whole
-  step (sampler line 218 -> forwards -> reward loop 261/274 -> update 295)
-  across 10 samples at 5 s intervals. Nothing is stuck; **every operation is
-  30-50x slower**.
-- Standalone microbenchmarks in the same minutes are fast (100 tiny CUDA ops
-  = 0.01 s; depth-10 SF eval 12 ms on real shard positions), which is why
-  every "works when I test it" check kept failing to reproduce.
-- The trigger is sibling sessions on the shared box: load 45+ with swap
-  storms (CPU side) and foreign CUDA contexts on the 6 GB GPU (device side).
-  Cost model: a production step is ~2048 SF evals + ~500 CUDA launches; at
-  inflated per-op latency that is hours per step. The tiny probe (8 evals,
-  ~20 launches) completes 6 steps in 12 s **at load 45** -- same code, same
-  box, 1000x less work per step. The old Oct 7 run did 1500 steps in days on
-  a quieter box. The Oct 8 "8-hour hang" was partly this, partly the
-  (already-fixed) dead-engine pipe read.
-
-Mitigations now in (data repo c12bce8, e912314): grpo_train resumes from the
-newest checkpoint (verfied: relaunch prints `resume: checkpoint at step 4 >=
-4; nothing to do`); the phase gates on a GPU with zero foreign compute
-processes; and a 90-min step-rate watchdog kills a crawl instead of burning
-days -- with export-every 100, a kill loses at most 100 steps and a re-arm
-continues.
-
-Also verified this session: verdict B's +18.55 is CONFIRMED by engine-name
-PGN recount (158/300 = 52.67%); the fastchess txt's -18.55 is stage1's
-perspective (CLI order), not a ledger sign error; sprt_pentanomial.py had an
-engine-identity bug (fixed, d63dd50) that reported +6.9.
-
 ## GRPO "stall" root-caused: per-op latency inflation from box contention (2026-10-09)
 
 Seven hours of the production run produced exactly one step. Diagnosis chain,
