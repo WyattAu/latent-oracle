@@ -22,6 +22,34 @@ unless noted. Elo ± CI from the game-level MLE; pair-model numbers where run.
 | **BC-v1** | 50M human (2.5×), 3 ep | p1: **−32 ± 35** (first run, full 200); p2: **−7 ± 34 (49.0%)** | **DATA SCALING CONFIRMED**: +51 Elo over BC-v0 with non-overlapping CIs; near-parity with a 2-ply-searching SF16 |
 | **H2** | identical labels, decisiveness-weighted loss | p1: **−280 ± 121** (24-game early stop) | **MECHANISM CONFIRMED**: +156 vs the −436 uniform baseline. SF labels aren't poison; uniform loss on them was. Still below BC — imitation precision gap persists (AV phase attacks it properly) |
 
+## GRPO throughput — measured, and why depth-10+ SF RL is not yet runnable here
+
+**Supersedes the "GRPO is merely slow" reading.** Two distinct failure modes were
+separated on the shared 6-core box:
+
+1. **Real hang (fixed).** `SFEval` in `trainer/grpo_train.py` did blocking
+   `stdout.readline()` with no liveness check. When a forked grandchild inherits
+   the pipe, a dead engine's stdout never EOFs, so `readline()` waits forever.
+   The first production launch sat 8 h at ~15% CPU without reaching step 5. Now
+   every read checks `poll()` first and the caller respawns the engine and scores
+   the move 0 instead of blocking.
+2. **Genuine contention (not fixable in code).** With the hang removed, a reduced
+   probe (groups 64 x k 16 = 1024 depth-10 analyses/step, 3 engines) still took
+   >50 min to reach step 5 — indistinguishable from a hang, but healthy: all 3 SF
+   children alive, each at ~14% CPU, under **load average 33 on 6 cores**. The box
+   is oversubscribed ~5x by unrelated work, so each engine runs at ~1/6 speed.
+
+Measured consequence: step cost scales with `groups * k * depth` and with
+external load, so a 1500-step run is not a "slow job" — it is not runnable at
+production size on this machine while contention persists. Two code-side
+mitigations are in:
+
+- per-step logging (was every 5 steps, which is visually identical to a hang)
+- elapsed-minutes in each step line, so throughput is measured, not guessed
+
+**Unblock conditions:** reduce external load, raise `sf_pool` once cores are
+actually free, or cut `depth`/`k` for probe-scale runs. No GRPO verdict exists.
+
 ## Pending (armed chains)
 
 | Experiment | Gate |
