@@ -119,6 +119,18 @@ The honest consequence: production GRPO completes only in genuinely quiet
 windows. The gates refuse degraded ones, the watchdog escapes mid-run
 degradation, and resume means progress accumulates across windows.
 
+## Tooling state (2026-10-10)
+
+- **d16 TB sidecar: complete.** Full-shard regen finished (500k scanned,
+  3,728 TB labels vs the previous partial 2,653/335k-prefix), atomic-rename
+  written, sample-validated (schema, ≤5 pieces, sorted idx 897..499428).
+  Ready for the next AV stage-2 cycle.
+- **GRPO + B-confirm: still gated.** The shared box sits at load ~13–14
+  (sibling agent sessions at 60–77% CPU each); the phase gates require
+  load ≤ 6, thrash ≤ 50 KB/s, zero foreign GPU processes. Correctly waiting —
+  launching at load 14 means ~3x-slowed steps (measured earlier: the box
+  inflates per-op latency 30–50x at load 40+).
+
 ## Pending (armed chains)
 
 | Experiment | Gate |
