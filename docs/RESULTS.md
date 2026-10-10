@@ -143,7 +143,7 @@ degradation, and resume means progress accumulates across windows.
 | AMZ puzzle gate | base + 1.5 pts |
 | AV two-stage vs BC-chain best | after labels (~2 days) |
 | GRPO 1500 steps (armed, waiting for idle box) | d16 shard, depth 10, thrash/load-gated; auto-SPRTs vs base then pool; promote only if beat base AND no pool regression. Corrupt NaN-era checkpoints/SPRTs deleted 2026-10-09 |
-| d16 TB sidecar full regen | RUNNING (nice 15, ~16% core): tmp sidecar growing, atomic rename on completion; feeds the next AV cycle, does not compete with the GRPO gates |
+| d16 TB sidecar full regen | **DONE** (2026-10-09): 500,000 records scanned, 3,746 probed, 3,728 labeled (was 2,653 / 335k prefix), atomic rename, sample-validated (schema, ≤5 pieces, sorted idx 897..499428) — ready for the next AV cycle |
 
 ## Mechanism baselines (E4) — NOT cross-comparable (different opponents)
 
