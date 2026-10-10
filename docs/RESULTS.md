@@ -144,6 +144,7 @@ degradation, and resume means progress accumulates across windows.
 | AV two-stage vs BC-chain best | after labels (~2 days) |
 | GRPO 1500 steps (armed, waiting for idle box) | d16 shard, depth 10, thrash/load-gated; auto-SPRTs vs base then pool; promote only if beat base AND no pool regression. Corrupt NaN-era checkpoints/SPRTs deleted 2026-10-09 |
 | d16 TB sidecar full regen | **DONE** (2026-10-09): 500,000 records scanned, 3,746 probed, 3,728 labeled (was 2,653 / 335k prefix), atomic rename, sample-validated (schema, ≤5 pieces, sorted idx 897..499428) — ready for the next AV cycle |
+| AV s3: full-sidecar A/B (armed) | stage-2 recipe rerun from stage-1 init with ONLY the sidecar swapped (3,728 full vs 2,653 prefix); chained behind GRPO + B-confirm; verdict = s3-vs-s2 300 games + engine-name PGN recount (ops/av_s3_phase.sh) |
 
 ## Mechanism baselines (E4) — NOT cross-comparable (different opponents)
 
