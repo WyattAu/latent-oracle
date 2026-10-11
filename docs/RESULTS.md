@@ -63,7 +63,26 @@ not instantaneous, and the real cause is CPU saturation plus swap thrash.
 **Unblock conditions:** an idle box (or `sf_pool` sized to genuinely free
 cores) and depth 10 rather than 12. No GRPO verdict exists.
 
-## Verdict B confirmed and sharpened (2026-10-09): stage 2 +18.55 ± 24.16 (300 games)
+## Verdict B FINAL (2026-10-11): REFUTED at 800 games — stage 2 ≈ stage 1
+
+The 800-game confirmation (B-confirm chain, fastchess 15+0.2, openings epd,
+both colors) overturns the 300-game reading:
+
+- raw: 166W / 151L / 483D = 50.94% for stage 2
+- engine-name pair-model recount: **pair score 0.4906, Elo −6.5 ± 12.3**
+
+The 300-game +18.55 ± 24.16 (~0.8σ) was sampling noise, exactly what the
+confirmation was armed to test. **Stage 2 (d16 RCT/QAT) provides no
+measurable gain over stage 1** — the RCT/QAT recipe is struck from the
+promotion path. GRPO's base choice (s2) is unaffected: its SPRT compares
+against its own base, and s2 ≈ s1 anyway.
+
+The 300-game lesson stands as process: sub-1σ signals get confirmation runs
+before they steer decisions.
+
+---
+## Verdict B confirmed and sharpened (2026-10-09): stage 2 +18.55 ± 24.16 (300 games) — SUPERSEDED by the 800-game refutation above
+
 
 The +18.55 figure is CONFIRMED by a direct engine-name recount of the PGN
 (av-s2-vs-s1.pgn): stage2 scored 158/300 = 52.67% -> +18.55 Elo, result
@@ -145,6 +164,7 @@ degradation, and resume means progress accumulates across windows.
 | GRPO 1500 steps (armed, waiting for idle box) | d16 shard, depth 10, thrash/load-gated; auto-SPRTs vs base then pool; promote only if beat base AND no pool regression. Corrupt NaN-era checkpoints/SPRTs deleted 2026-10-09 |
 | d16 TB sidecar full regen | **DONE + VALIDATED** (2026-10-09/10): 500,000 records scanned, 3,746 probed, 3,728 labeled (was 2,653 / 335k prefix), atomic rename; independent check: 200 random labels re-decoded from the shard and re-probed — idx alignment, WDL, move legality all match (200/200) |
 | d10 TB sidecar | **FULL** (verified 2026-10-10): 15,186 labels, idx 897..1,999,623 of ~2M records — complete, no regen needed |
+| B-confirm: s2 vs s1, 800 games | **DONE — VERDICT B REFUTED** (2026-10-11): 166W/151L/483D = 50.94% raw; engine-name pair-model recount **−6.5 ± 12.3** — the 300-game +18.55 ± 24.16 was noise. s2 ≈ s1; no promotion. GRPO-vs-base SPRT remains internally valid regardless of base choice |
 | AV s3: full-sidecar A/B (armed) | stage-2 recipe rerun from stage-1 init with ONLY the sidecar swapped (3,728 full vs 2,653 prefix); chained behind GRPO + B-confirm; verdict = s3-vs-s2 300 games + engine-name PGN recount (ops/av_s3_phase.sh) |
 
 ## Mechanism baselines (E4) — NOT cross-comparable (different opponents)
