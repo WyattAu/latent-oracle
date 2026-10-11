@@ -165,7 +165,7 @@ degradation, and resume means progress accumulates across windows.
 | d16 TB sidecar full regen | **DONE + VALIDATED** (2026-10-09/10): 500,000 records scanned, 3,746 probed, 3,728 labeled (was 2,653 / 335k prefix), atomic rename; independent check: 200 random labels re-decoded from the shard and re-probed — idx alignment, WDL, move legality all match (200/200) |
 | d10 TB sidecar | **FULL** (verified 2026-10-10): 15,186 labels, idx 897..1,999,623 of ~2M records — complete, no regen needed |
 | B-confirm: s2 vs s1, 800 games | **DONE — VERDICT B REFUTED** (2026-10-11): 166W/151L/483D = 50.94% raw; engine-name pair-model recount **−6.5 ± 12.3** — the 300-game +18.55 ± 24.16 was noise. s2 ≈ s1; no promotion. GRPO-vs-base SPRT remains internally valid regardless of base choice |
-| AV s3: full-sidecar A/B (armed) | stage-2 recipe rerun from stage-1 init with ONLY the sidecar swapped (3,728 full vs 2,653 prefix); chained behind GRPO + B-confirm; verdict = s3-vs-s2 300 games + engine-name PGN recount (ops/av_s3_phase.sh) |
+| AV s3: full-sidecar A/B (armed, re-queued behind the fixed GRPO) | stage-2 recipe rerun from stage-1 init with ONLY the sidecar swapped (3,728 full vs 2,653 prefix); first launch died on a missing `cd $TR` (fixed, c4c8cda); verdict = s3-vs-s2 300 games + engine-name PGN recount (ops/av_s3_phase.sh) |
 
 ## Mechanism baselines (E4) — NOT cross-comparable (different opponents)
 
