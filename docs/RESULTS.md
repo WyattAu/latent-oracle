@@ -150,6 +150,36 @@ degradation, and resume means progress accumulates across windows.
   launching at load 14 means ~3x-slowed steps (measured earlier: the box
   inflates per-op latency 30–50x at load 40+).
 
+## GRPO v1 FINAL (2026-10-12): CATASTROPHIC REGRESSION — reward hacking confirmed
+
+The 1500-step run completed (15 checkpoints) and the full 400-game SPRTs
+give an unambiguous verdict:
+
+- **GRPO vs base: 31/400 = 7.75%** (base scores 92.25%)
+- GRPO vs SF16.1-p1 pool: 13.5/400 = 3.38%
+- Games ending in 2–6 plies; zero-draw stretches — degenerate play
+
+**This is textbook reward hacking.** The training reward (single depth-10
+SF eval of the moved-to position, r_mean) climbed 0.25 → 0.57 while real
+play collapsed to 7.75%. The policy learned to steer the evaluator, not to
+play chess. Two design failures compounded:
+
+1. **KL control was absent in practice.** kl_beta 0.03 let divergence grow
+   exponentially: 2.6 nats @ step 350 → **371 nats @ step 1500**. Healthy
+   RLHF keeps 5–15 nats with adaptive penalties. By step 350 the run should
+   have been stopped or the coefficient raised.
+2. **The reward is hackable by design.** A single absolute SF eval rewards
+   evaluator-steering; real chess RL uses game outcomes or eval-deltas.
+
+The intermediate SPRT "Elo: inf, 22-0" lines in the log were intermediate
+SPRT evaluations at tiny game counts — the full 400-game engine-name counts
+above are the verdict.
+
+**Salvage in progress:** checkpoints s100–s500 (KL 0.5–5.8, pre-collapse)
+are being swept vs base — if any early checkpoint beats base, GRPO survives
+in KL-controlled form; if none does, RL-on-static-eval is struck from the
+roadmap entirely.
+
 ## Pending (armed chains)
 
 | Experiment | Gate |
