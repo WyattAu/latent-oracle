@@ -175,10 +175,26 @@ The intermediate SPRT "Elo: inf, 22-0" lines in the log were intermediate
 SPRT evaluations at tiny game counts — the full 400-game engine-name counts
 above are the verdict.
 
-**Salvage in progress:** checkpoints s100–s500 (KL 0.5–5.8, pre-collapse)
-are being swept vs base — if any early checkpoint beats base, GRPO survives
-in KL-controlled form; if none does, RL-on-static-eval is struck from the
-roadmap entirely.
+**Salvage sweep COMPLETE (2026-10-12): no checkpoint survives.**
+
+| ckpt | KL | score vs base (100 games) |
+|---|---|---|
+| s100 | 0.55 | 48.5% |
+| s200 | 1.6 | 46.5% |
+| s300 | 2.6 | 38.0% |
+| s400 | 4.4 | 44.0% |
+| s500 | 5.8 | 45.5% |
+| s1500 | 371 | 7.75% |
+
+Every checkpoint scores below 50% — the RL was neutral-to-harmful from the
+FIRST checkpoint, long before the KL collapse. The static-eval reward was
+gameable from step 1; KL control could not have saved it.
+
+**GRPO v1 final verdict: RL against a static SF evaluator is refuted.**
+Strength-oriented RL on chess requires game-outcome rewards (self-play
+win/loss at scale) — a fundamentally different and far more expensive
+architecture. The failure-mode analysis (reward hacking dynamics, the
+nan_to_num/exp backward leak, the KL trajectory) is the durable deliverable.
 
 ## Pending (armed chains)
 
