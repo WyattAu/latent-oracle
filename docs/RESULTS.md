@@ -196,6 +196,34 @@ win/loss at scale) — a fundamentally different and far more expensive
 architecture. The failure-mode analysis (reward hacking dynamics, the
 nan_to_num/exp backward leak, the KL trajectory) is the durable deliverable.
 
+## Self-play outcome learning — loop closed (2026-10-13)
+
+Two iterations of the full loop (self-play generation -> PGN->shard ->
+outcome BC -> SPRT), both NULL at game level:
+
+- Iteration 1 (s4): 10k games, 1 epoch on 53k winner-move records: +2.32
+  ± 3.19
+- Iteration 2 (s5): 30k games total, 4 epochs on 155k records, init from
+  s4: −1.16 ± 3.93; draw rate 74% (healthy chess, unlike GRPO's degenerate
+  games)
+
+**Why it is information-thin:** in self-play between identical engines,
+winner-side and loser-side moves are distributionally identical up to
+opening luck and in-game variance. The outcome labels which games were
+won, but the moves themselves carry no new chess knowledge to imitate --
+the policy just re-learns its own move distribution.
+
+**What would change the picture (all far above this box's envelope):**
+true policy-gradient RL (REINFORCE/PPO) on game outcomes with proper
+advantage baselines at 100k+ game scale; or search-augmented training
+(MCTS-guided policy improvement). Both are architecture-scale projects.
+
+**Positive deliverable:** the complete outcome-learning loop (self-play
+37 min/10k games with -recover stall handling, roundtrip-validated
+PGN->shard converter, NaN-guarded trainer, SPRT harness with labeled
+perspectives) runs unattended in ~1 h per cycle. The infrastructure is the
+asset; the pilot verdicts are its calibration.
+
 ## Pending (armed chains)
 
 | Experiment | Gate |
@@ -211,6 +239,7 @@ nan_to_num/exp backward leak, the KL trajectory) is the durable deliverable.
 | d16 TB sidecar full regen | **DONE + VALIDATED** (2026-10-09/10): 500,000 records scanned, 3,746 probed, 3,728 labeled (was 2,653 / 335k prefix), atomic rename; independent check: 200 random labels re-decoded from the shard and re-probed — idx alignment, WDL, move legality all match (200/200) |
 | d10 TB sidecar | **FULL** (verified 2026-10-10): 15,186 labels, idx 897..1,999,623 of ~2M records — complete, no regen needed |
 | B-confirm: s2 vs s1, 800 games | **DONE — VERDICT B REFUTED** (2026-10-11): 166W/151L/483D = 50.94% raw; engine-name pair-model recount **−6.5 ± 12.3** — the 300-game +18.55 ± 24.16 was noise. s2 ≈ s1; no promotion. GRPO-vs-base SPRT remains internally valid regardless of base choice |
+| Self-play loop iteration 2 (s5) | **DONE — NULL** (2026-10-13): s5 (4 epochs on 155k records from 30k s1+s4 self-play games, init from s4) vs s1 = 49.83% (−1.16 ± 3.93 game-level, +1.2 ± 20.1 pair-model), 74% draws (healthy games — no GRPO-style degeneracy). Two iterations of winner-move self-imitation: both null. The outcome signal in self-play between identical engines is information-thin: winner-moves and loser-moves are distributionally identical up to opening luck |
 | Self-play outcome BC pilot (s4) | **DONE — NULL, SAFE** (2026-10-12): 10k self-play games (2,696 decisive), winner-move BC 1 epoch; s4 vs s1 = +2.32 ± 3.19 game-level, −2.3 ± 20.1 pair-model. No gain, no collapse — in contrast to GRPO's 7.75% catastrophe on the same base. Infra proven: 10k games in 37 min, PGN→shard converter roundtrip-validated, full loop < 1 h. Scale-up path: iterate self-play with the improved net + outcome-weighted loss + more epochs |
 | AV s3: full-sidecar A/B | **DONE — NULL** (2026-10-11): s3 = 144.5/300 (48.17%, −12.75 ± ~20) vs s2 by engine-name count; pair-model +12.7 for stage2 (White of game 1) agrees. The fuller TB sidecar (3,728 vs 2,653 labels = 0.75% of the set) changes nothing measurable. **Positive: first end-to-end trainer run to complete and produce a playable net** (NaN-guarded trainer, c4c8cda lineage) |
 
