@@ -75,6 +75,19 @@ loss 4.90 → 3.79, bucket-acc 0.8% (random) → 9.1%, calibration 0.27 →
 0.117, zero NaN incidents. 0.003% of DeepNoc's data — far left of their
 scaling curve, which is still rising steeply at 1M+ games.
 
-**Next:** scale to 2 train shards (~40M records, ~3GB GPU tensors via
-int8), evaluate on their public puzzles.csv (target: DeepNoc-9M's 88.9%),
-SPRT the resulting net vs base at game level, then decide on 400M+ labels.
+**Game-level verification (2026-10-14, 200/400 games):** the AV net
+(puzzles 11.0% = 5.5x random) scores **21.5% vs the base net
+(−225 ± 38 Elo)** via a Python UCI wrapper (argmax expected-win over legal
+moves, ~35 forwards/move). At 400k records (0.004% of ChessBench) the AV
+approach is decisively weaker than best-move BC -- DeepNoc's own scaling
+curve (still steep at 1M games / 15.3B labels) and oneply's 1.15B-example
+run say the fix is DATA SCALE (public, free) plus GPU-weeks, not
+architecture. oneply's inversion result also matters: a HALF-TRAINED 7M
+AV net GAINED +13.8 puzzle points from depth-2 search -- light search
+compensates weak AV nets at our scale.
+
+**Loop 1 verdict: the searchless single-eval design is data-starved, not
+concept-broken. The scaling path is public (ChessBench), concrete (oneply:
+6.9M net, 1.15B examples, 24 A100-hours), and deferred until a GPU budget
+exists.** The engine keeps best-move-BC nets; the AV checkpoint and the
+UCI wrapper (uci_chessbench_av.py) are preserved for the revisit.
