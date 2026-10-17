@@ -30,7 +30,7 @@ all ops scripts point at the persistent path.
 | 2 | RL formulation | Static-eval rewards refuted (reward hacking); outcome-based RL needs the right formulation at affordable scale | AlphaZero/AlphaStack; Ceres (MCTS-free AZ); self-imitation learning | Ceres, LC0 self-play | PENDING |
 | 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | CLOSED: volume binding but out of budget; 11%-vs-~76% gap at matched compute makes loop 4 first |
 | 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | PENDING |
-| 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | PENDING |
+| 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | IN PROGRESS: xattn-vs-pooled head run chained (gate: 30% puzzles) |
 | 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | AZ opening sampling; LC0 training-game filters | LC0 self-play | PENDING |
 | 7 | Inference efficiency | Blob format v3 + INT8: quantization's strength cost measured? | INT8 quantization papers; LC0 quantized nets | LC0 INT8 | PENDING |
 | 8 | Endgame | TB sidecar null at training; runtime TB paths in src/tb unexplored | Syzygy papers | Fathom, SF TB | PENDING |
@@ -90,6 +90,16 @@ run say the fix is DATA SCALE (public, free) plus GPU-weeks, not
 architecture. oneply's inversion result also matters: a HALF-TRAINED 7M
 AV net GAINED +13.8 puzzle points from depth-2 search -- light search
 compensates weak AV nets at our scale.
+
+### Loop 5 — Evaluation heads: xattn conditioning experiment (running)
+
+Full write-up: `RESEARCH-LOOP5-HEADS.md`. Loop 3's 65-point gap analysis
+points at head conditioning first: the pooled head mixes move and state only
+in the last MLP; the xattn head lets the move embedding attend over all 64
+board tokens for +0.4M params and no change to the one-trunk-pass inference
+contract. Smoke evidence at 500 steps: 6.5% vs ~3.5% bucket accuracy.
+Full 20M-record run chained behind the label-depth match
+(`ops/xattn_after_match.sh`); gate for engine integration: ≥30% puzzles.
 
 ### Loop 3 — Data quality: ordering decision (volume waits, architecture first)
 
