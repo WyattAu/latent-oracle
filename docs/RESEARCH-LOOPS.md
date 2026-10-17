@@ -28,7 +28,7 @@ all ops scripts point at the persistent path.
 |---|------|--------------|--------|---------------|--------|
 | 1 | Move selection (searchless) | Single net eval picks moves; GRPO hacking showed the eval head is steerable. Can a pure policy play strong chess? | DeepMind "Grandmaster-Level Chess Without Search" (DeepNoc 2024); LC0 policy-only play | LC0, DeepNoc, Maia | CLOSED: data-starved at 0.004% labels (200-game AV play −225 Elo) |
 | 2 | RL formulation | Static-eval rewards refuted (reward hacking); outcome-based RL needs the right formulation at affordable scale | AlphaZero/AlphaStack; Ceres (MCTS-free AZ); self-imitation learning | Ceres, LC0 self-play | PENDING |
-| 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | CLOSED: volume binding but out of budget; 11%-vs-~76% gap at matched compute makes loop 4 first |
+| 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | CLOSED: d16 plain-BC is borderline +36 Elo (recipe-masked null in verdict B); volume still out of budget; loop 4/5 next |
 | 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | PENDING |
 | 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | IN PROGRESS: xattn-vs-pooled head run chained (gate: 30% puzzles) |
 | 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | AZ opening sampling; LC0 training-game filters | LC0 self-play | PENDING |
@@ -90,6 +90,13 @@ run say the fix is DATA SCALE (public, free) plus GPU-weeks, not
 architecture. oneply's inversion result also matters: a HALF-TRAINED 7M
 AV net GAINED +13.8 puzzle points from depth-2 search -- light search
 compensates weak AV nets at our scale.
+
+### Loop 3 — amendment: the d16 match came back borderline POSITIVE
+
+The clean fine-tune (no RCT/QAT) scores +36.0 ± 20.2 Elo over the champion
+(300 games). Verdict B's null was recipe-masked. 600-game extension running;
+if confirmed, d16-plain-BC fine-tuning becomes the first live training-side
+lever since the champion was crowned.
 
 ### Loop 5 — Evaluation heads: xattn conditioning experiment (running)
 

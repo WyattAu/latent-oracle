@@ -768,3 +768,15 @@ losses, and the endgame already has exact tablebase play.
 | GRPO reward slots were filled with **NaN**, so any group with a padded slot had NaN mean/std → NaN loss | same dry run | zeros + explicit validity mask; mean/var computed over valid slots only |
 | GRPO `build_step` appended to `fens` but not to `moves_per`/`acts`/`base_logp`, so the lists ran short and the reward loop indexed past their end | same dry run | every branch appends to all four lists |
 | fastchess prints `Elo: X, nElo: Y` on **one line**, so `grep -oE 'Elo: ...'` also matches nElo — and `tail -1` selects exactly the wrong number. `analyze_verdicts` read a 6-game smoke match as −300.89 (nElo) instead of −190.85 | verdict-harness smoke run | `\bElo:` in Python; `sed 's/, nElo:.*//'` before extraction in `keep_best.sh` |
+
+## 2026-10-17 — Clean label-depth test (d16 plain BC vs champion): BORDERLINE POSITIVE
+
+ops/label_depth.sh, 300 games tc=15+0.2, av_v3_d16bc/net_e1_ema (fine-tuned
+from av_v3 on the d16 shard, NO RCT/QAT/recycle/sidecar) vs av_v3/net_e1:
+fastchess +36.03 ± 21.87 (d16bc perspective); pair-model recount
++36.0 ± 20.2 (1.78σ; pentanomial WW=2 WD=21 split=77 LD=44 LL=6 from the
+champion's side — strong tail asymmetry). 95% CI [−3.6, +75.6]: not
+conclusively significant, but verdict B's null (d16 + RCT/QAT: −6.5 ± 12.3)
+is now explained as recipe-masked — plain deeper labels help, the RCT/QAT
+recipe threw the gain away. 600-game extension running
+(sprt/av-d16bc-vs-s1-ext600.*) to settle significance.
