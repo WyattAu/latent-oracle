@@ -30,7 +30,7 @@ all ops scripts point at the persistent path.
 | 2 | RL formulation | Static-eval rewards refuted (reward hacking); outcome-based RL needs the right formulation at affordable scale | AlphaZero/AlphaStack; Ceres (MCTS-free AZ); self-imitation learning | Ceres, LC0 self-play | PENDING |
 | 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | CLOSED: d16 plain-BC is borderline +36 Elo (recipe-masked null in verdict B); volume still out of budget; loop 4/5 next |
 | 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | PENDING |
-| 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | IN PROGRESS: xattn-vs-pooled head run chained (gate: 30% puzzles) |
+| 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | CLOSED: exact tie, 11.0% puzzles both heads -- conditioning not the driver at 20M records; loop 4 inherits |
 | 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | AZ opening sampling; LC0 training-game filters | LC0 self-play | PENDING |
 | 7 | Inference efficiency | Blob format v3 + INT8: quantization's strength cost measured? | INT8 quantization papers; LC0 quantized nets | LC0 INT8 | PENDING |
 | 8 | Endgame | TB sidecar null at training; runtime TB paths in src/tb unexplored | Syzygy papers | Fathom, SF TB | PENDING |
@@ -90,6 +90,15 @@ run say the fix is DATA SCALE (public, free) plus GPU-weeks, not
 architecture. oneply's inversion result also matters: a HALF-TRAINED 7M
 AV net GAINED +13.8 puzzle points from depth-2 search -- light search
 compensates weak AV nets at our scale.
+
+### Loop 5 — result: conditioning null (exact tie), loop 4 inherits
+
+The full xattn run scored exactly the same as pooled: 220/2000 = 11.0%.
+Smoke-scale conditioning gains do not survive to 20M records. The d16
+extension also landed: combined +20 ± 11.5 over 900 games (1.75σ,
+weak-positive, below the adoption bar). Loop 4's first obligation is a
+compute-matched rerun (DeepNoc's 20K-game point ≈ 10M samples; ours was
+4.6M) before encoding surgery can be credited.
 
 ### Loop 3 — amendment: the d16 match came back borderline POSITIVE
 

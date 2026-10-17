@@ -50,4 +50,15 @@ xattn head on the SAME 20M records, same 12k steps, same batch, same init
 - If the gate fails, the blob stays BC-policy-only and loop 4 inherits the
   open question.
 
-**Loop 5 verdict:** pending the xattn run (~5h after the label-depth match).
+**RESULT (2026-10-17): EXACT TIE — 220/2000 = 11.0% puzzles for BOTH the
+pooled and xattn heads** (same 20M records, 12k steps, batch, init). The
+conditioning effect visible in the smoke test (6.5% vs 3.5% bucket-acc at
+step 500) does not survive to the full scale. Move conditioning is NOT the
+bottleneck at this data scale.
+
+**Loop 5 verdict: measured null.** The head layout does not drive puzzle
+accuracy at 20M records; the blob stays BC-policy-only plus the unchanged
+pooled AV option. Per the decision tree, loop 4 (encoding/trunk) inherits
+the 65-point gap question — with the caveat that DeepNoc's compute-matched
+point saw ~10M samples (one pass) vs our 4.6M (0.23 epochs), so a
+compute-matched rerun must precede any encoding-surgery credit.

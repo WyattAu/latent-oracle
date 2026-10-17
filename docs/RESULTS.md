@@ -780,3 +780,19 @@ conclusively significant, but verdict B's null (d16 + RCT/QAT: −6.5 ± 12.3)
 is now explained as recipe-masked — plain deeper labels help, the RCT/QAT
 recipe threw the gain away. 600-game extension running
 (sprt/av-d16bc-vs-s1-ext600.*) to settle significance.
+
+## 2026-10-17 (later) — d16 extension + xattn gate: weak-positive d16, conditioning null
+
+**d16 extension (600 games):** d16bc +12.2 ± 14.2 (pair model, engine-name
+recount; fastchess txt +12.17 ± 16.70 agrees). Combined with the first 300:
+**d16bc ≈ +20 ± 11.5 over 900 games (1.75σ)** — the sign held in both
+halves, but this is below the adoption bar. Status: weak-positive, unresolved;
+one more ~900-game block would cross ~2.5σ if the effect is real.
+
+**xattn head gate (loop 5):** EXACT tie with the pooled head — 220/2000 =
+11.0% puzzles for both (same 20M records, steps, batch, init). Move
+conditioning is NOT the bottleneck at this data scale. Loop 5 closes as a
+measured null; loop 4 (encoding/trunk) inherits the 65-point gap question.
+Noted for loop 4: DeepNoc's compute-matched 20K-game point saw ~10M samples
+(one pass) vs our 4.6M samples over 20M records (0.23 epochs) — a recipe
+gap that must be controlled before encoding surgery is credited.
