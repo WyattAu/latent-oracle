@@ -17,11 +17,16 @@ closes with those.
 (torch, Muon, mathlib-free), fastchess SPRT harness, the self-play loop
 (37 min / 10k games).
 
+**Trainer environment:** the persistent venv is
+`/home/wyatt/.venvs/chess/bin/python` (torch 2.6.0+cu124, CUDA, python-chess).
+`/tmp/opencode/venv` is NOT durable — `/tmp` gets wiped between sessions, so
+all ops scripts point at the persistent path.
+
 ## Loop Plan
 
 | # | Part | Open problem | Papers | Other engines | Status |
 |---|------|--------------|--------|---------------|--------|
-| 1 | Move selection (searchless) | Single net eval picks moves; GRPO hacking showed the eval head is steerable. Can a pure policy play strong chess? | DeepMind "Grandmaster-Level Chess Without Search" (DeepNoc 2024); LC0 policy-only play | LC0, DeepNoc, Maia | IN PROGRESS |
+| 1 | Move selection (searchless) | Single net eval picks moves; GRPO hacking showed the eval head is steerable. Can a pure policy play strong chess? | DeepMind "Grandmaster-Level Chess Without Search" (DeepNoc 2024); LC0 policy-only play | LC0, DeepNoc, Maia | CLOSED: data-starved at 0.004% labels (200-game AV play −225 Elo) |
 | 2 | RL formulation | Static-eval rewards refuted (reward hacking); outcome-based RL needs the right formulation at affordable scale | AlphaZero/AlphaStack; Ceres (MCTS-free AZ); self-imitation learning | Ceres, LC0 self-play | PENDING |
 | 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | PENDING |
 | 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | PENDING |
@@ -85,6 +90,30 @@ run say the fix is DATA SCALE (public, free) plus GPU-weeks, not
 architecture. oneply's inversion result also matters: a HALF-TRAINED 7M
 AV net GAINED +13.8 puzzle points from depth-2 search -- light search
 compensates weak AV nets at our scale.
+
+### Loop 2 — RL formulation: closed by measurement (spec ruling + gate)
+
+Full write-up: `RESEARCH-LOOP2-RL.md`. The literature and our own runs agree
+on one structural fact: every successful searchless policy learns from a
+target *better than itself* (MCTS visit distributions in AlphaZero, SF search
+statistics in DeepNoc/ChessFormer/Dragon). Remove the search and remove the
+target; what remains is a policy graded by its own or a co-trained head,
+which is exactly our GRPO failure mode (KL 371 nats, reward ceiling by step
+~300, 15/15 checkpoints losing to their teacher) and our self-imitation
+nulls (s4 `+2.32 ± 3.19`, s5 `−1.16 ± 3.93`).
+
+**Deliverables (spec + enforcement, not a new training run):**
+1. Spec ruling: the blob carries no RL artifacts; move selection stays a
+   deterministic single-forward argmax; training is supervised by default.
+2. `ops/rl_gate.sh` — an RL run may touch the engine only if it beats *its own
+   BC teacher* over 300 games at tc=15+0.2, pair-model, engine-name recount,
+   with the 95% lower bound above −25 Elo (a null is not a pass). GRPO fails
+   this by construction, which is why it is refuted rather than tuned.
+
+**Loop 2 verdict:** RL formulation is settled for this repo — distillation
+from a fixed oracle is the only formulation that yields gains here. RL's
+legitimate role is game generation at 10²–10³× our current volume, not
+policy optimization on this box.
 
 **Loop 1 verdict: the searchless single-eval design is data-starved, not
 concept-broken. The scaling path is public (ChessBench), concrete (oneply:
