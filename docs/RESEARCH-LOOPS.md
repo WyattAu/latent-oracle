@@ -28,7 +28,7 @@ all ops scripts point at the persistent path.
 |---|------|--------------|--------|---------------|--------|
 | 1 | Move selection (searchless) | Single net eval picks moves; GRPO hacking showed the eval head is steerable. Can a pure policy play strong chess? | DeepMind "Grandmaster-Level Chess Without Search" (DeepNoc 2024); LC0 policy-only play | LC0, DeepNoc, Maia | CLOSED: data-starved at 0.004% labels (200-game AV play −225 Elo) |
 | 2 | RL formulation | Static-eval rewards refuted (reward hacking); outcome-based RL needs the right formulation at affordable scale | AlphaZero/AlphaStack; Ceres (MCTS-free AZ); self-imitation learning | Ceres, LC0 self-play | PENDING |
-| 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | PENDING |
+| 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | CLOSED: volume binding but out of budget; 11%-vs-~76% gap at matched compute makes loop 4 first |
 | 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | PENDING |
 | 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | PENDING |
 | 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | AZ opening sampling; LC0 training-game filters | LC0 self-play | PENDING |
@@ -90,6 +90,22 @@ run say the fix is DATA SCALE (public, free) plus GPU-weeks, not
 architecture. oneply's inversion result also matters: a HALF-TRAINED 7M
 AV net GAINED +13.8 puzzle points from depth-2 search -- light search
 compensates weak AV nets at our scale.
+
+### Loop 3 — Data quality: ordering decision (volume waits, architecture first)
+
+Full write-up: `RESEARCH-LOOP3-DATA.md`. The d16-vs-d10 plain-BC match
+closes label depth as second-order at ≤2M positions. The decisive number:
+at DeepNoc's ~20K-game compute point their 9M net scores ~76% on the public
+puzzles while our AV net scores 11% — same data scale, same param class.
+Encoding (64-byte piece codes vs per-square planes) and head design (pooled
+state + move embedding vs state-action token read by the trunk) are the
+structural suspects. One pass over 400M ChessBench labels is a 17-day RTX
+2060 run: out of budget; 130M is 5.5 idle-box days, contingent on (a).
+
+**Loop 3 verdict:** volume is the first-order constraint but cannot be paid
+on this box; the head/encoding redesign (loop 4) at FIXED data is the
+binding, affordable experiment. Data scale-up is deferred behind loop 4's
+puzzle-accuracy gate (≥30% on the same 20M records).
 
 ### Loop 2 — RL formulation: closed by measurement (spec ruling + gate)
 
