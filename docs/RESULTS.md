@@ -807,3 +807,14 @@ a 1.78σ result is NOT a "live lever" — with multiple comparisons in flight,
 only ~2.5σ+ extensions justify adoption. Verdict B's null stands on clean
 evidence now: deeper SF labels (d10 → d16) do not move strength through
 plain BC at 1-2M positions.
+
+## 2026-10-18 (later) — compute-matched control: samples are NOT the hidden variable
+
+26k steps / 9.2M samples (2x the av_s6 run, same records/head/batch/init):
+**12.45% puzzles vs 11.0%** — +1.45 points per doubling of samples. Nearly
+flat scaling, vs DeepNoc's ~76% at the same compute point. Combined with
+loop 5's exact head tie, the 65-point gap is now established by elimination
+as structural in the trunk. Prime suspect: our BC warm-start (features
+shaped for best-move classification, not win-prob regression; DeepNoc
+trains from scratch). Next: from-scratch run, same 20M records/12k steps
+-- the last cheap control before encoding/trunk surgery.
