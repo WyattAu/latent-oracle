@@ -796,3 +796,14 @@ measured null; loop 4 (encoding/trunk) inherits the 65-point gap question.
 Noted for loop 4: DeepNoc's compute-matched 20K-game point saw ~10M samples
 (one pass) vs our 4.6M samples over 20M records (0.23 epochs) — a recipe
 gap that must be controlled before encoding surgery is credited.
+
+## 2026-10-18 — d16 label-depth: definitive NULL after 1800 games
+
+Third block (900 games): d16bc −4.7 ± 11.9. Sequence across blocks:
++36.0 ± 20.2 (300) → +12.2 ± 14.2 (600) → −4.7 ± 11.9 (900). Pooled:
+**+7.7 ± 8.3 Elo over 1800 games (0.93σ)** — a null. The +36 was a false
+positive, caught by the extension rule exactly as designed. Lesson recorded:
+a 1.78σ result is NOT a "live lever" — with multiple comparisons in flight,
+only ~2.5σ+ extensions justify adoption. Verdict B's null stands on clean
+evidence now: deeper SF labels (d10 → d16) do not move strength through
+plain BC at 1-2M positions.

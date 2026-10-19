@@ -28,7 +28,7 @@ all ops scripts point at the persistent path.
 |---|------|--------------|--------|---------------|--------|
 | 1 | Move selection (searchless) | Single net eval picks moves; GRPO hacking showed the eval head is steerable. Can a pure policy play strong chess? | DeepMind "Grandmaster-Level Chess Without Search" (DeepNoc 2024); LC0 policy-only play | LC0, DeepNoc, Maia | CLOSED: data-starved at 0.004% labels (200-game AV play −225 Elo) |
 | 2 | RL formulation | Static-eval rewards refuted (reward hacking); outcome-based RL needs the right formulation at affordable scale | AlphaZero/AlphaStack; Ceres (MCTS-free AZ); self-imitation learning | Ceres, LC0 self-play | PENDING |
-| 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | CLOSED: d16 plain-BC is borderline +36 Elo (recipe-masked null in verdict B); volume still out of budget; loop 4/5 next |
+| 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | CLOSED: d16 label depth NULL after 1800 games (+7.7 +- 8.3, false positive caught); volume out of budget; loop 4 active |
 | 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | PENDING |
 | 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | CLOSED: exact tie, 11.0% puzzles both heads -- conditioning not the driver at 20M records; loop 4 inherits |
 | 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | AZ opening sampling; LC0 training-game filters | LC0 self-play | PENDING |
@@ -100,12 +100,14 @@ weak-positive, below the adoption bar). Loop 4's first obligation is a
 compute-matched rerun (DeepNoc's 20K-game point ≈ 10M samples; ours was
 4.6M) before encoding surgery can be credited.
 
-### Loop 3 — amendment: the d16 match came back borderline POSITIVE
+### Loop 3 — final amendment: the d16 "borderline positive" was a false positive
 
-The clean fine-tune (no RCT/QAT) scores +36.0 ± 20.2 Elo over the champion
-(300 games). Verdict B's null was recipe-masked. 600-game extension running;
-if confirmed, d16-plain-BC fine-tuning becomes the first live training-side
-lever since the champion was crowned.
+The +36 ± 20 (300 games) collapsed through extensions (+12 ± 14 at 600,
+−4.7 ± 12 at 900) to **+7.7 ± 8.3 over 1800 games** — a null. The extension
+rule caught it exactly as designed; the lesson (1.78σ ≠ live lever; only
+~2.5σ+ extensions justify adoption) is recorded in RESULTS. Label depth is
+closed as a null lever; loop 4 (compute-matched control, then encoding) is
+the active question.
 
 ### Loop 5 — Evaluation heads: xattn conditioning experiment (running)
 

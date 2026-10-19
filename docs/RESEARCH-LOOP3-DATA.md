@@ -65,16 +65,18 @@ SAME 20M records → then data volume.
   before engine integration. BC-v2's 130M null already passed through this
   logic post-hoc; the gate makes it mandatory.
 
-**MATCH RESULT (2026-10-17):** the clean d16 fine-tune is **borderline
-POSITIVE**: +36.0 ± 20.2 Elo over the champion (300 games; 1.78σ; CI
-[−3.6, +75.6]). Verdict B's null is explained as recipe-masked: deeper
-labels help through plain BC; RCT/QAT threw the gain away. 600-game
-extension running. Revised order of cheap levers: (1) d16-plain-BC
-fine-tunes (now a live lever), (2) head conditioning (loop 5, running),
-(3) volume (still out of budget).
+**MATCH RESULT (2026-10-18, final): NULL.** The 300-game "+36.0 ± 20.2"
+was a false positive: extensions landed +12.2 ± 14.2 (600) then −4.7 ± 11.9
+(900), pooling to **+7.7 ± 8.3 over 1800 games (0.93σ)**. Verdict B's null
+stands on clean evidence: label depth (d10 → d16) does not move strength
+through plain BC at 1-2M positions — and the RCT/QAT recipe question is
+moot, since there is no gain for a recipe to mask.
 
-**Loop 3 verdict (revised):** label depth is NOT second-order — the d10→d16
-plain-BC fine-tune is the first positive training-side result since the
-champion was crowned, pending extension confirmation. The 11%-vs-~76%
-architecture gap stands; volume remains out of budget. Closes with the
-ordering decision + admission gate, amended by the live d16 lever.
+**Protocol lesson (recorded in RESULTS):** a 1.78σ result is not a "live
+lever". With multiple comparisons in flight, only ~2.5σ+ extensions justify
+adoption. The extension rule worked as designed.
+
+**Loop 3 verdict (final):** label depth is a null lever at ≤2M positions.
+Volume is first-order but out of budget; the 11%-vs-~76% gap at matched
+compute (loop 4's question, after the running compute-matched control)
+is the binding constraint.
