@@ -818,3 +818,23 @@ as structural in the trunk. Prime suspect: our BC warm-start (features
 shaped for best-move classification, not win-prob regression; DeepNoc
 trains from scratch). Next: from-scratch run, same 20M records/12k steps
 -- the last cheap control before encoding/trunk surgery.
+
+## 2026-10-19 — warm-start null + the underfitting reframe (loops 3-5 corrected)
+
+From-scratch AV run (same 20M records, 12k steps, batch, pooled head):
+**11.00% puzzles — exact tie with the warm-started run.** Warm-start is
+exonerated.
+
+The reframe: bucket-acc was STILL IMPROVING at run end (7.3% -> 10.9%
+across 12k steps), loss 3.72 is far from floor, and 11-12% TRAIN-bucket
+accuracy on deterministic SF-search labels = severe underfitting. The
+"flat sample scaling" of the 26k control was an artifact of stopping an
+unconverged run, not evidence about data or architecture. DeepNoc's 9M
+recipe consumes ~30-100M samples; ours got 4.6-9.2M. The compute-matched
+claim in the 2026-10-18 entry was wrong — the controls eliminated budget,
+not architecture.
+
+Next: 60k-step convergence run (~23M samples, ~28h). Verdict rule: if the
+curve is still rising at 60k, the route is budget-bound (loop 4 closes as
+"out of compute"); if it plateaus well below DeepNoc's 9M curve, the gap
+is structural (encoding/trunk surgery justified).
