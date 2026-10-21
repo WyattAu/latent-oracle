@@ -881,11 +881,11 @@ Caveats recorded honestly:
   verified in-engine (NetQ o=0 path) and loqw_sim.py is the Python parity
   reference. Reconstruction of the recipe (QAT lineage, source checkpoint)
   is open.
-- **TC-depth decomposition owed**: the engine's engine-side recycling means
-  a 3× faster net searches deeper under equal wall-clock — part of the +136
-  may be search-depth-under-TC, not pure eval quality. A fixed-nodes match
-  would isolate it. Under TC play (the deployment condition), the result
-  stands as measured.
+- **TC-depth decomposition: RESOLVED, no confound.** Both matches ran at the
+  default `RecyclePasses=1` — a single trunk forward per move for both
+  engines regardless of speed (uci.cpp:65). Wall-clock speed cannot buy
+  depth in a one-pass engine, so the +136 is pure evaluation quality. (A
+  RecyclePasses>1 comparison would reintroduce the depth axis; not run.)
 - The "RCT/QAT refuted" verdicts were on the av_v3 lineage (d16 fine-tunes);
   this bc-lineage QAT net is a different animal and is now the strongest
   measured net.

@@ -22,6 +22,12 @@ closes with those.
 `/tmp/opencode/venv` is NOT durable — `/tmp` gets wiped between sessions, so
 all ops scripts point at the persistent path.
 
+**Champion (2026-10-21):** `/home/wyatt/data/runs/bc/net_q_v2.bin` — the
+INT8/QAT LOQW net (+136.0 ± 18.7 over av_v3/net_e1 at 3.1× size; RESULTS
+2026-10-21). All future SPRT references should use it. Caveats: quantizer
+provenance gap; both verdicts ran single-pass (RecyclePasses=1), so no
+TC-depth confound.
+
 ## Loop Plan
 
 | # | Part | Open problem | Papers | Other engines | Status |
