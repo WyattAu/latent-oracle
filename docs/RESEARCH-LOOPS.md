@@ -29,7 +29,7 @@ all ops scripts point at the persistent path.
 | 1 | Move selection (searchless) | Single net eval picks moves; GRPO hacking showed the eval head is steerable. Can a pure policy play strong chess? | DeepMind "Grandmaster-Level Chess Without Search" (DeepNoc 2024); LC0 policy-only play | LC0, DeepNoc, Maia | CLOSED: data-starved at 0.004% labels (200-game AV play −225 Elo) |
 | 2 | RL formulation | Static-eval rewards refuted (reward hacking); outcome-based RL needs the right formulation at affordable scale | AlphaZero/AlphaStack; Ceres (MCTS-free AZ); self-imitation learning | Ceres, LC0 self-play | PENDING |
 | 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | CLOSED: d16 label depth NULL after 1800 games (+7.7 +- 8.3, false positive caught); volume out of budget; loop 4 active |
-| 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | PENDING |
+| 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | CLOSED: budget-bound (4 controls measured; 23M samples = 14.6% puzzles, −164 Elo) |
 | 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | CLOSED: exact tie, 11.0% puzzles both heads -- conditioning not the driver at 20M records; loop 4 inherits |
 | 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | AZ opening sampling; LC0 training-game filters | LC0 self-play | PENDING |
 | 7 | Inference efficiency | Blob format v3 + INT8: quantization's strength cost measured? | INT8 quantization papers; LC0 quantized nets | LC0 INT8 | PENDING |
@@ -90,6 +90,17 @@ run say the fix is DATA SCALE (public, free) plus GPU-weeks, not
 architecture. oneply's inversion result also matters: a HALF-TRAINED 7M
 AV net GAINED +13.8 puzzle points from depth-2 search -- light search
 compensates weak AV nets at our scale.
+
+### Loop 4 — closed: budget-bound, architecture exonerated
+
+The control chain: head conditioning (exact tie), 2× samples (+1.45),
+warm-start (exact tie), convergence (60k steps: still rising, 14.6%
+puzzles, −164 ± 28 play). The underfitting reframe corrected loop 3's
+"flat scaling" artifact: the runs were unconverged, and the curve rises
+log-linearly at +2.2 points/octave — reachable only with 30-100M+ samples
+(3-10 GPU-days), i.e. out of this box's budget. The 65-point gap to
+DeepNoc at matched params is compute, not architecture. Revisit trigger:
+a GPU budget or a public checkpoint swap.
 
 ### Loop 5 — result: conditioning null (exact tie), loop 4 inherits
 

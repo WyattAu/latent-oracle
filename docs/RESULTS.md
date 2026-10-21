@@ -838,3 +838,24 @@ Next: 60k-step convergence run (~23M samples, ~28h). Verdict rule: if the
 curve is still rising at 60k, the route is budget-bound (loop 4 closes as
 "out of compute"); if it plateaus well below DeepNoc's 9M curve, the gap
 is structural (encoding/trunk surgery justified).
+
+## 2026-10-21 — loop 4 closed: the AV route is budget-bound (scaling curve complete)
+
+Game-level point for the 60k-step net (23M samples): **28.3% vs champion,
+−164 ± 28 Elo** (300 games, pair model). With puzzles 14.6%, the curve is:
+
+| samples | puzzles | play vs champion |
+|---|---|---|
+| 4.6M | 11.0% | −225 ± 38 |
+| 23M | 14.6% | −164 ± 28 |
+
+Both metrics rise together: the DeepNoc AV recipe works, directionally
+confirmed at game level, but at +2.2 puzzle points per sample-octave the
+route needs ~30-100M+ samples (3-10 GPU-days) to reach even their BC
+baseline's territory. All four cheap hypotheses are measured
+(head conditioning, sample-doubling within budget, warm-start, budget) and
+exactly one — budget — is binding. The 65-point gap to DeepNoc's curve at
+matched param count is compute, not architecture.
+
+En route: two wrapper bugs fixed (style scoping, hook-handle clobber) that
+the old smoke test missed; the smoke test now covers position+go+bestmove.
