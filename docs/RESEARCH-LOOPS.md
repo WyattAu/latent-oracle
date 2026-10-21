@@ -31,7 +31,7 @@ all ops scripts point at the persistent path.
 | 3 | Training data quality | SF-depth labels: d10 vs d16 both capped; BC-v2 130M null. What label depth/diversity actually moves strength? | DeepNoc (9M GM games, no engine labels); Kasparov-era datasets | LC0 training drops, DeepNoc dataset | CLOSED: d16 label depth NULL after 1800 games (+7.7 +- 8.3, false positive caught); volume out of budget; loop 4 active |
 | 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | CLOSED: budget-bound (4 controls measured; 23M samples = 14.6% puzzles, −164 Elo) |
 | 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | CLOSED: exact tie, 11.0% puzzles both heads -- conditioning not the driver at 20M records; loop 4 inherits |
-| 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | AZ opening sampling; LC0 training-game filters | LC0 self-play | PENDING |
+| 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | CLOSED: diversity book-capped (~1980 distinct early positions / 30k games, 80-90% dups); fix specified, gated on a data-hungry target |
 | 7 | Inference efficiency | Blob format v3 + INT8: quantization's strength cost measured? | INT8 quantization papers; LC0 quantized nets | LC0 INT8 | PENDING |
 | 8 | Endgame | TB sidecar null at training; runtime TB paths in src/tb unexplored | Syzygy papers | Fathom, SF TB | PENDING |
 | 9 | Openings & variety | openings.epd + opening-weight 1.5: book diversity vs strength measurement noise | SPRT opening selection papers | fishtest opening suites | PENDING |
@@ -90,6 +90,17 @@ run say the fix is DATA SCALE (public, free) plus GPU-weeks, not
 architecture. oneply's inversion result also matters: a HALF-TRAINED 7M
 AV net GAINED +13.8 puzzle points from depth-2 search -- light search
 compensates weak AV nets at our scale.
+
+### Loop 6 — closed: self-play diversity is book-capped
+
+Measured on the existing corpora: the generator seeds from the 2000-line
+openings.epd and replays deterministically, so 30k games contain only
+~1,970-1,982 distinct ply-8/12 positions (80-90% duplicate rate) — the
+s4/s5 data was state-space-thin as well as outcome-thin. Fix specified
+(unbounded seeding + root temperature 1.0 for 8-12 plies, gate: <10% dup
+rate at 10k games), deferred until a training target can consume the
+entropy (loop 4's budget verdict caps the AV target). Full write-up:
+`RESEARCH-LOOP6-SELFPLAY.md`.
 
 ### Loop 4 — closed: budget-bound, architecture exonerated
 
