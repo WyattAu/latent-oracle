@@ -32,7 +32,7 @@ all ops scripts point at the persistent path.
 | 4 | Net architecture | ChessNet v3 (GAB transformer, 6.5M params): board-image encoding vs move-history/state-action designs | DeepNoc bidirectional transformer; LC0 ResNet; five-column nets | LC0 arch survey | CLOSED: budget-bound (4 controls measured; 23M samples = 14.6% puzzles, −164 Elo) |
 | 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | CLOSED: exact tie, 11.0% puzzles both heads -- conditioning not the driver at 20M records; loop 4 inherits |
 | 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | CLOSED: diversity book-capped (~1980 distinct early positions / 30k games, 80-90% dups); fix specified, gated on a data-hungry target |
-| 7 | Inference efficiency | Blob format v3 + INT8: quantization's strength cost measured? | INT8 quantization papers; LC0 quantized nets | LC0 INT8 | PENDING |
+| 7 | Inference efficiency | Blob format v3 + INT8: quantization's strength cost measured? | CLOSED: INT8/QAT is a WIN, not a cost — new champion net_q_v2 (+136 over old champion, 3.1× smaller); TC-depth decomposition owed |
 | 8 | Endgame | TB sidecar null at training; runtime TB paths in src/tb unexplored | Syzygy papers | Fathom, SF TB | PENDING |
 | 9 | Openings & variety | openings.epd + opening-weight 1.5: book diversity vs strength measurement noise | SPRT opening selection papers | fishtest opening suites | PENDING |
 | 10 | C++ engine integration | src/nn inference path: batch/blob plumbing vs the Python model — parity gates | — | — | PENDING |
@@ -90,6 +90,17 @@ run say the fix is DATA SCALE (public, free) plus GPU-weeks, not
 architecture. oneply's inversion result also matters: a HALF-TRAINED 7M
 AV net GAINED +13.8 puzzle points from depth-2 search -- light search
 compensates weak AV nets at our scale.
+
+### Loop 7 — closed: INT8/QAT dethrones the champion
+
+Executing the stale Oct-4 int8_sprt chain produced the session's biggest
+result: bc/net_q_v2 (INT8, 8.2 MB) scores +136.0 ± 18.7 (7.3σ) over the
+reigning champion av_v3/net_e1, and +233 ± 30 over its FP32 parent-era net.
+Fastchess's txt Elo line mislabeled match 1; the engine-name recount
+protocol caught it (direct PGN count confirms). New champion recorded in
+RESULTS. Caveats: quantizer-script provenance is a recorded gap
+(sibling-session artifact), and a fixed-nodes match is owed to decompose
+eval-quality vs TC search depth.
 
 ### Loop 6 — closed: self-play diversity is book-capped
 
