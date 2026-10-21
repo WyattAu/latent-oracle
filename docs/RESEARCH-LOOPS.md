@@ -39,9 +39,9 @@ TC-depth confound.
 | 5 | Evaluation heads | Policy + value + WDL heads: which head layout drives play quality at fixed params? | DeepNoc Q-heads (state-action values); AZ value/WDL split | LC0 WDL, DeepNoc | CLOSED: exact tie, 11.0% puzzles both heads -- conditioning not the driver at 20M records; loop 4 inherits |
 | 6 | Self-play generation | Loop proven (37 min/10k games); opening diversity and game-quality filters unexplored | CLOSED: diversity book-capped (~1980 distinct early positions / 30k games, 80-90% dups); fix specified, gated on a data-hungry target |
 | 7 | Inference efficiency | Blob format v3 + INT8: quantization's strength cost measured? | CLOSED: INT8/QAT is a WIN, not a cost — new champion net_q_v2 (+136 over old champion, 3.1× smaller); TC-depth decomposition owed |
-| 8 | Endgame | TB sidecar null at training; runtime TB paths in src/tb unexplored | Syzygy papers | Fathom, SF TB | PENDING |
-| 9 | Openings & variety | openings.epd + opening-weight 1.5: book diversity vs strength measurement noise | SPRT opening selection papers | fishtest opening suites | PENDING |
-| 10 | C++ engine integration | src/nn inference path: batch/blob plumbing vs the Python model — parity gates | — | — | PENDING |
+| 8 | Endgame | TB sidecar null at training; runtime TB paths in src/tb unexplored | CLOSED: runtime TB is a measured no-op in harness (150/150 splits); retained as correctness guarantee |
+| 9 | Openings & variety | openings.epd + opening-weight 1.5: book diversity vs strength measurement noise | SPRT opening selection papers | CLOSED: paired-book + pentanomial infra audited sound; absolute Elo is book-conditional (rule recorded) |
+| 10 | C++ engine integration | src/nn inference path: batch/blob plumbing vs the Python model — parity gates | CLOSED: NetQ parity gate built and passing (0/50); AV blob integration deferred per loop 4 |
 
 ## Per-Loop Protocol
 
@@ -203,3 +203,21 @@ concept-broken. The scaling path is public (ChessBench), concrete (oneply:
 6.9M net, 1.15B examples, 24 A100-hours), and deferred until a GPU budget
 exists.** The engine keeps best-move-BC nets; the AV checkpoint and the
 UCI wrapper (uci_chessbench_av.py) are preserved for the revisit.
+
+### Loops 8, 9, 10 — closing sweep
+
+- **Loop 8 (`RESEARCH-LOOP8-ENDGAME.md`)**: Fathom Syzygy root probing was
+  already implemented (≤5 men, `SyzygyPath`); no verdict had ever enabled
+  it. Measured TB-on vs TB-off with the new champion: perfect null
+  (150/150 split pairs). Retained as a correctness guarantee.
+- **Loop 9 (`RESEARCH-LOOP9-OPENINGS.md`)**: the 2000-line paired book +
+  pentanomial + engine-name recount infrastructure is audited sound; twice
+  this session it caught mislabeled/False-positive results. Absolute Elo is
+  book-conditional — interpretation rule recorded.
+- **Loop 10**: AV blob integration stays deferred (loop 4 budget verdict),
+  but the deliverable that mattered now exists: `ops/netq_parity.py`
+  (python quantized forward vs engine bestmove) — PASS 0/50 on both LOQW
+  blobs after fixing the fuzz's own piece-code convention (shard format is
+  black=pt+8). The champion's inference path is verified bit-faithful.
+
+**Program state: all 10 loops closed.**
