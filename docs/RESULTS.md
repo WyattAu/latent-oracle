@@ -859,3 +859,33 @@ matched param count is compute, not architecture.
 
 En route: two wrapper bugs fixed (style scoping, hook-handle clobber) that
 the old smoke test missed; the smoke test now covers position+go+bestmove.
+
+## 2026-10-21 — loop 7: INT8/QAT net is the NEW CHAMPION (+136 ± 18.7, 7.3σ)
+
+The stale int8_sprt chain (armed Oct 4, never fired) is now executed.
+Two matches:
+
+1. **bc/net_q_v2.bin (INT8, 8.2 MB) vs bc/net_e1.bin (FP32, 25.8 MB):**
+   q_v2 scores **79.25%**, +233 ± 30 Elo (400 games; PGN recount by engine
+   name — fastchess's txt Elo line was MISLABELED here, the recount caught
+   it; direct PGN count agrees with the pair model).
+2. **bc/net_q_v2.bin vs the champion av_v3/net_e1.bin:** q_v2 scores
+   **68.63%, +136.0 ± 18.7 (7.3σ)** (400 games, pair model).
+
+**New champion: /home/wyatt/data/runs/bc/net_q_v2.bin** — 3.1× smaller AND
++136 Elo over the old champion under tc=15+0.2.
+
+Caveats recorded honestly:
+- **Provenance gap**: the quantizer script that produced net_q_v2 (Oct 3)
+  is gone (sibling-session artifact, likely /tmp-wiped). The LOQW format is
+  verified in-engine (NetQ o=0 path) and loqw_sim.py is the Python parity
+  reference. Reconstruction of the recipe (QAT lineage, source checkpoint)
+  is open.
+- **TC-depth decomposition owed**: the engine's engine-side recycling means
+  a 3× faster net searches deeper under equal wall-clock — part of the +136
+  may be search-depth-under-TC, not pure eval quality. A fixed-nodes match
+  would isolate it. Under TC play (the deployment condition), the result
+  stands as measured.
+- The "RCT/QAT refuted" verdicts were on the av_v3 lineage (d16 fine-tunes);
+  this bc-lineage QAT net is a different animal and is now the strongest
+  measured net.
