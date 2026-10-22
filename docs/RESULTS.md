@@ -889,3 +889,29 @@ Caveats recorded honestly:
 - The "RCT/QAT refuted" verdicts were on the av_v3 lineage (d16 fine-tunes);
   this bc-lineage QAT net is a different animal and is now the strongest
   measured net.
+
+## 2026-10-22 — path-forward sweep: RP axis null; absolute Elo anchored (~1900 SF-limit)
+
+**RecyclePasses sweep (the engine's own depth axis, never before measured):**
+RP2 vs RP1 +5.2 ± 24.6, RP4 vs RP1 +13.9 ± 24.6 (RP4 perspective), RP8 vs
+RP1 +3.5 ± 24.6 — all null at 200 games each. The searchless champion is at
+its plateau; looped-trunk compute does not convert to strength.
+
+**External calibration (first absolute anchors of the program):**
+vs SF UCI_LimitStrength (200 games each, pair model):
+- SF-Elo 2000: champ −129.0 ± 26.3
+- SF-Elo 2200: champ −193.2 ± 28.5
+- SF-Elo 2400: champ −251.9 ± 31.3
+
+The SF limit-strength scale is compressed (~3x) in this range; interpolating,
+the champion sits around **~1900 SF-limit-Elo** (roughly CCRL-blitz ~1900-2000
+equivalent). Every future "+N" now has an absolute meaning.
+
+**BC-at-scale launched:** bag_to_shard.py converts ChessBench AV bags to
+engine shards (BC target = SF move, white-POV wdl from mover-POV win prob).
+First conversion had a rank-orientation bug (FEN starts at a8; boards were
+flipped, 99.5% of targets illegal, the first 400-step "run" was void) —
+caught by reconstructing FENs from shard records vs source; fixed and
+verified 100000/100000 board-exact. 37.9M-record shard converted; 74k-step
+1-epoch BC run training (fast mask path, ~6h). Question it answers: does
+20x the champion's data at the champion's architecture move the ladder?
