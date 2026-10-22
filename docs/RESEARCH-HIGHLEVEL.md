@@ -1,117 +1,227 @@
-# High-Level Research Loop — verified against live sources, 2026-10-22
+# High-Level Research Loop v2 — deep dive, verified 2026-10-22
 
-Every claim below was pulled from arXiv/lczero.org on 2026-10-22 (not from
-model memory). Sources checked via arXiv API queries and the LC0 blog.
+Supersedes the first pass (`RESEARCH-HIGHLEVEL.md`, same date). This version
+is based on FULL TEXTS (arXiv HTML) of the four load-bearing papers plus
+their appendices, fetched today. Verification log at the end.
 
-## 1. The verified landscape (what actually changed since our loop-1 notes)
+---
 
-### The architecture family we half-belong to
-- **ChessFormer** (Monroe & Chalmers, arXiv:2409.12272, Sep 2024): square
-  tokens + domain position encoding in attention; outperforms AlphaZero at
-  8x less compute, prior GM transformers at 30x less.
-- **ChessFormer: A Unified Architecture** (Monroe, Eilender, Chalmers, Tang,
-  Anderson, ICLR 2026, arXiv:2605.19091): adds **Geometric Attention Bias
-  (GAB)** and an attention-based source-destination policy head. Integrated
-  into LC0: **+100 Elo, tournament wins over Stockfish**. Maia-3 human move
-  prediction 57.1% top-1. **Our v3 `gab_table` descends from this line —
-  and the champion (a v1 net) has it DISABLED.**
-- **AlphaGateau** (Rigaux & Kashima, arXiv:2410.23753, 2024): graph/GAT
-  representation, order-of-magnitude faster small-param training. (Superseded
-  for our purposes by ChessFormer's results with plain transformers.)
+## 1. Deep notes per paper
 
-### The searchless-distillation line
-- **DeepNoc** (Ruoss et al., arXiv:2402.04494 v2, updated Oct 2024):
-  ChessBench, 15B SF16 labels; target ordering **action-values > behavioral
-  cloning > state-values**; 2895 blitz vs humans / 2299 vs bots at 270M.
-  Confirms our loop-1 numbers.
-- **Prior-Directed Exploration for Searchless Chess** (Miłosz, Duch,
-  Grabowski, arXiv:2608.27757, Aug 2026): fine-tunes LC0's Chessformer-
-  distilled policy (starting at **93.9% puzzle accuracy**) with self-play RL
-  using forward-KL toward the net's own MCTS prior + value-uncertainty-
-  adaptive temperature: 93.9->94.9% puzzles, mate-in-4 77->81%, strength
-  held. Two warnings we should frame on the wall:
-  1. **A puzzle-only fine-tune gained the most puzzle accuracy and LOST
-     ~260 Elo.** Puzzle accuracy and playing strength dissociate.
-  2. **Without a regularizer, self-play collapses onto a single line.**
-  Their lever applies AFTER distillation reaches high accuracy — at our
-  11-15% it is premature. It also retroactively validates our RL gate.
-- **Tracking vs. Deciding** (Li & Jiang, arXiv:2603.29761, Mar 2026):
-  sequence (move-HISTORY) input, trained from HUMAN games only, no engine
-  labels; 120M params searchless -> **Lichess bullet 2570**; formalizes
-  P <= min(tracking, deciding); low-rated games needed for tracking,
-  Elo-weighted loss for decisions.
+### 1.1 ChessFormer / Leela-CF (arXiv:2605.19091, ICLR 2026) — the blueprint
 
-### The existence proof at our scale (the paper our "oneply" notes pointed at)
-- **Engineering Efficient Self-Play Chess** (Braun, arXiv:2609.37447, Sep
-  2026): AlphaZero-style from scratch on a SINGLE 8-GPU node in 2.5 days;
-  **6.32M params -> 3251 benchmark Elo @ 100k searches/move vs an SF-13
-  ladder**; 3.25M games, 100B simulations; documents policy-representation
-  ablations and an explicit list of alternatives that failed. Code + model
-  artifacts public. Same param class as ours: with search, +1350 Elo over
-  our searchless champion. The gap is search + self-play volume, not
-  architecture size.
+**Architecture (Leela-CF, 191M):** 15 layers, d_model 1024, MLP 1536, head
+dim 32; GAB d2=d3=256. Input: 64 square tokens × depth 112 = 12 piece
+one-hots × 8 board frames (**current + 7 history positions**, earliest
+repeated if unavailable) + repetition flags (8) + 4 castling flags + side-
+to-move (1) + plies-since-capture/100 (1) + 2 edge channels. **Board is
+flipped to side-to-move perspective.**
 
-### Interpretability (why move-conditioning is principled)
-- **Learned Look-Ahead in Lc0** (Jenner et al., arXiv:2406.00877, 2024):
-  probes read the optimal move 2 plies ahead from Lc0's activations at 92%
-  accuracy — policy nets implement lookahead internally; giving the trunk
-  access to the candidate move is the architectural expression of this.
+**GAB** (the headline component): board state → linear d1 → flatten →
+linear d2 → GELU+LN → linear h·d3 → per-head projection (SHARED across all
+layers) → h×4096 → h×64×64 bias added to attention logits pre-softmax.
+Dynamic per-position; models global positional features (game phase etc.)
+while dot-product attention carries square-local semantics. Ablation at 4M
+params (Table 5, 95% CIs):
 
-### QAT line (the likely explanation of our +233 mystery)
-- Modern QAT is **on-policy distillation from the FP teacher on student-
-  visited states** (OnlineQAT, arXiv:2610.09346; OnQ, arXiv:2610.29378;
-  QATFactory, arXiv:2609.39223 — all Sep/Oct 2026). QAT is consistently
-  reported to IMPROVE over FP on quality, not merely match it. Our lost
-  quantizer (+233 over its own FP32 parent, +136 over the old champion)
-  is plausibly exactly this recipe applied at 8-bit — worth re-deriving.
+| encoding | policy acc | puzzles | Elo | FLOPs |
+|---|---|---|---|---|
+| absolute | 56.6 | 61.0 | 0 ± 18 | 210M |
+| relative 2D bias | 57.5 | 63.2 | +40 ± 18 | 210M |
+| GAB (2.5M params) | 57.0 | 61.5 | −4 ± 18 | 131M |
+| GAB (4M params) | 58.5 | 64.2 | **+83 ± 18** | 228M |
 
-### Corrections to our own ledger
-- **"Ceres (Inria, MCTS-free AZ)" — NOT FOUND on arXiv.** Earlier references
-  in RESEARCH-LOOP2-RL.md and the loop table were from model memory, not
-  verified sources. Struck from the citation set; the RL-formulation
-  conclusions of loop 2 stand on AlphaZero ablations + our own measurements,
-  which is sufficient.
+Monotonic absolute < relative < GAB; GAB matches absolute at ~60% of the
+compute. In full LC0: **+100 Elo, TCEC Cup 11 + Swiss 6/7 wins over
+Stockfish** (14 months of Stockfish development ≈ 46 Elo by comparison).
 
-## 2. What this means for OUR design (the clear picture)
+**Policy head:** scaled dot-product of from-token queries × to-token keys →
+64×64 logits + promotion logits (learned projection on last-rank keys, one
+bias per promotion piece; ep = diagonal moves; castling = king-two-square).
+**Identical in kind to ours.** Value head: mean-pool → LN → 128 → ReLU → 3
+WDL logits. **Also identical in kind to ours.**
 
-The champion is a v1 net: 64 square tokens (piece+square+side only),
-bilinear from-to policy head, one forward pass, BC on SF argmax of <=2M
-positions, then an unreproducible 8-bit QAT step. High-level gaps vs the
-verified state of the art:
+**Distillation data (the part everyone copies):** a FIXED dataset of LC0
+self-play games from an April 2024 RL run, keeping only games after the
+model's strength plateaued. Oracle = 100M-param transformer searched at
+**600 nodes/move**. Policy target = **MCTS visit distribution** (not argmax);
+value target = 3-way WDL. Training: Nadam (β1 0.9, β2 0.98), 6M steps, LR
+2e-3 → 3e-4 → 3e-5, SWA checkpointing (no EMA). The four ablation models
+(2.5-4M params) each trained **1×A100 ≈ 4 days** — our scale class.
 
-| # | Axis | Ours | SOTA practice | Expected effect |
-|---|------|------|---------------|-----------------|
-| 1 | Label paradigm | one-hot argmax (BC) | soft per-move win-probs (AV, DeepNoc) | same data, ~35x more information/record; DeepNoc: AV > BC |
-| 2 | Move conditioning | trunk blind to move; move only in final dot product | move-conditioned scoring (DeepNoc AV; Jenner's lookahead evidence) | the policy head's expressiveness ceiling |
-| 3 | Positional encoding | learned square emb only | GAB (ChessFormer ICLR'26; +100 Elo inside LC0) | our v3 has the table; the champion doesn't use it |
-| 4 | Rule-state inputs | castling rights, ep, 50-move INVISIBLE | standard inputs everywhere | free correctness; tiny param cost |
-| 5 | History | single frame | sequence input -> Lichess bullet 2570 from human games alone | different strength profile; free data route |
-| 6 | Search | none | 100k searches -> 3251 Elo at our param count (Braun) | the ceiling is search+data, not size |
-| 7 | QAT | one unreproducible win | on-policy distillation QAT (2026 literature) | possibly the +100-class lever we already stumbled into |
+**Results vs DeepNoc:** Leela-CF-**policy** (ONE forward pass): 2374 ± 37
+Elo, 93.5% puzzles at **7.6B FLOPs**. DeepNoc AC-270M (value-max strategy,
+~35 forwards): 2299 ± 36, 94.2% at **427B FLOPs**. The strongest searchless
+chess entity per FLOP in the published record is a square-token + GAB +
+history-8 transformer distilled from a fixed searched oracle — 56× less
+compute than AC-270M and stronger.
 
-## 3. Revised experiment queue (high-level first, data second)
+**History ablation:** n=0→7 improves substantially; n=7→31 no gain. n=7 is
+the sweet spot.
 
-0. **Control (running):** BC-at-37.9M, v1 recipe — answers "data alone at
-   fixed design" from below.
-1. **AV-paradigm on the same 37.9M shard** (soft win-prob targets): isolates
-   label paradigm at fixed data. DeepNoc's ordering predicts AV > BC.
-2. **GAB + castle/ep on the BC recipe** (v3-lite from scratch): aligns us
-   with ChessFormer ICLR'26 inputs; fixes the rule-state blindness.
-3. **Move-conditioned trunk** (move token through all blocks): the DeepNoc
-   AV design done faithfully; 35x inference cost, priced after measuring.
-4. **QAT re-derivation** on whichever net wins 1-3 (on-policy distillation
-   flavor per the 2026 literature), targeting the +100-class effect.
-5. **Sequence/history input from Lichess human games** (free data, the
-   Tracking-vs-Deciding route) — bigger build, defer behind 1-4.
-6. **LC0-policy distillation** (soft, MCTS-shaped teacher instead of SF
-   argmax) — the label-quality endgame; needs LC0 inference per position,
-   priced later.
+**Critique of DeepNoc's encoding they showed:** RoPE on a LINEARIZED square
+sequence "maximally decays attention between opposite corners even though
+those corners lie on a main diagonal" — 1D position encodings are wrong for
+chess geometry.
 
-Explicitly NOT pursued: search-heavy self-play at our compute (Braun needs
-20 GPU-days for 3251; we have ~1/50th of that), GNN representations
-(superseded), puzzle-accuracy fine-tuning as a goal (the -260 Elo warning).
+### 1.2 Braun (arXiv:2609.37447, Sep 2026) — the engineering mirror
 
-## 4. Protocol note
-Puzzle metrics are reported but never optimized as objectives (Miłosz's
-dissociation result). All verdicts remain game-level SPRT with the
-engine-name recount.
+AZ-style self-play, 6.32M params (14×160 conv ResNet, 52 side-to-move-
+canonical planes incl. castling/ep/repetition/50-move/**8 recent moves**/
+material counts), 2.5 days on 8×4070S ($43!), 3.25M games → **3251 Elo at
+100k searches** vs SF13 fixed-node ladder. Policy-only (no search):
+**1,658-1,717 benchmark Elo**. Search multiplies strength ×~1.9 at their
+data quality (policy-only → 100k searches = +1,593 Elo).
+
+**Ablations that validate or refute our designs:**
+- **From-to policy head RETAINED** (50k params vs 484k dense; −0.03 nats
+  held-out CE; dense and move-plane heads FAILED). Our head design is right.
+- **Conv trunk beat bare attention** (64 square tokens + learned row/col
+  embeddings) by 0.006 nats held-out; **Smolgen-style biased attention beat
+  conv by +0.009 nats** but was slower to serve → conv retained for search
+  throughput. For SEARCHLESS inference the throughput argument weakens;
+  biased attention (GAB/Smolgen family) is the fit winner.
+- **PTQ without QAT: 13.3-25.9% policy top-1 agreement** (activation ranges
+  grow ~0.78→~40 with depth). QAT required scaled post-activation blocks
+  (capped activation, 1/√depth residual scaling). INT8 = 1.31× inference
+  speed — throughput, NOT strength, in their pipeline.
+- **Auxiliary training-only heads**: next-position policy (0.15) + moves-
+  remaining (0.1). KataGo-style; removed at deployment.
+- **Progressive sizing** (12×128 → 14×160 mid-run) worked; further growth
+  showed no gain. Distilled 470k-param students: −278 to −416 Elo below the
+  6.3M teacher even at large search — small nets compress badly here.
+- **Three failures with transferable lessons**: (1) late-game target
+  poisoning (27-32% of games hit the ply cap; excluding the tail made value
+  targets wrong); (2) TensorRT refit silently changed predictions (KL 1.05!)
+  — fixed by deployment-parity checks, exactly our NetQ gate; (3) **a loss-
+  based promotion gate shipped a net ~270 Elo WEAKER** — "loss ≠ playing
+  strength", the same lesson as our Goodhart-adjacent results (bucket-acc,
+  puzzle-acc never predict play).
+
+### 1.3 Prior-Directed Exploration (arXiv:2608.27757, Aug 2026)
+
+Starting point: LC0's Chessformer-distilled policy at **93.9% puzzles**.
+Self-play RL fine-tune with forward-KL toward the net's own MCTS prior +
+value-uncertainty-adaptive temperature: +1pt puzzles, mate-in-4 +4pts,
+strength held/slightly up, in ~2k steps. Findings we adopt as protocol law:
+- **Puzzle-only fine-tune: biggest puzzle gains, −260 Elo.** Puzzles are a
+  diagnostic, never an objective.
+- **Unregularized self-play collapses to a single line** — the regularizer
+  (prior anchor) is what keeps exploration alive. Our earlier self-play
+  nulls (s4/s5) are consistent: outcome-only signals without an anchor.
+
+### 1.4 Tracking vs. Deciding (arXiv:2603.29761, Mar 2026)
+
+Decoder-only GPT over **UCI move tokens** (~1900 vocab), RoPE + SwiGLU;
+28M (12L/384d) and 120M (16L/768d). Data: Lichess bullet+blitz, 10M-100M
+games (~1.4-14B tokens), 2 epochs; 28M = 2.5 H100-hours, 120M = 70 H100-
+hours. No board input at all — the model tracks state internally.
+
+- **Lichess bullet 2570** (120M, Elo-weighted), 55.2% top-1 human move
+  prediction (beats Maia-2's 50.0/50.4 under native input).
+- **P ≤ min(tracking T, deciding Q)**: filtering low-rated games (the
+  "obvious" quality move) doubles illegal-move rates and collapses
+  middlegame/endgame accuracy. Fix = scale (tracking) + **linear Elo
+  weighting r≈20** (decisions); exponential r≈200 destroys tracking while
+  LOWERING validation loss. **Validation loss ≠ strength, again.**
+- Sequence input enables history-dependent play position models cannot do
+  (e.g., repetition-avoidance timing, style coherence).
+- Probes: board state IS linearly decodable in these models (98% at 120M).
+
+### 1.5 The QAT line (Sep-Oct 2026): OnlineQAT (2610.09346), OnQ
+(2610.29378), QATFactory (2609.39223), TRACE (2610.07767)
+
+Modern QAT consensus: PTQ degrades; the fix is distillation FROM THE FP
+TEACHER ON THE QUANTIZED STUDENT'S OWN STATES (on-policy), not offline
+fixed-data QAT. QATFactory: deployment-format simulation in the training
+loop; format-dependent details matter. Braun: activation-range growth makes
+naive PTQ catastrophic (13-26% top-1), architectural accommodations
+(scaled/capped blocks) + QAT restore fidelity.
+
+**Our +233 mystery in this light:** our lost quantizer beat its own FP32
+parent by a margin no PTQ can achieve. The 2026 literature says the only
+familiar mechanism for "quantized version is BETTER" is a QAT-with-
+distillation recipe (student adapts to quantization noise while matching a
+teacher). Re-deriving that recipe is a concrete, citable experiment.
+
+### 1.6 Evidence for move-conditioning (arXiv:2406.00877, 2024)
+
+Lc0 activations contain the optimal move 2 plies ahead (92% probe accuracy).
+Searchless nets implement lookahead internally; DeepNoc's AV design (move
+conditions the whole computation) is the architectural expression.
+
+---
+
+## 2. The convergent SOTA recipe for searchless chess
+
+Synthesizing ChessFormer + DeepNoc + Braun + Miłosz (all verified above):
+
+1. **Tokens**: 64 squares, 12-piece one-hot, **side-to-move perspective**.
+2. **Positional encoding**: GAB-style dynamic bias (not RoPE-on-sequence,
+   not learned absolute).
+3. **History**: 8 board frames (n=7 past) — the single biggest input lever
+   after GAB (ChessFormer history ablation).
+4. **Rule state**: castling flags, repetition, plies-since-capture, 50-move.
+5. **Policy head**: from-to scaled dot-product + promotion offsets (ours
+   already matches).
+6. **Value head**: mean-pool → 128 → WDL (ours already matches).
+7. **Teacher**: a FIXED searched oracle distilled at moderate depth
+   (600-visit LC0 self-play for ChessFormer; SF16 50ms searches for
+   DeepNoc) — targets are DISTRIBUTIONS (visit counts or per-move win
+   probs), never argmax-only.
+8. **RL fine-tune only AFTER distillation plateaus** (Miłosz), with a
+   prior-anchored regularizer.
+9. **QAT at deployment** with on-policy distillation and parity gates
+   (Braun's refit-drift lesson = our NetQ gate).
+
+## 3. Gap analysis: ours vs the recipe
+
+| Recipe element | Champion (net_q_v2) | Gap severity |
+|---|---|---|
+| Square tokens | ✓ | — |
+| From-to policy head | ✓ | — |
+| Mean-pool value head | ✓ | — |
+| GAB | **absent** (v3 has the table; unused) | **high** (+83 Elo at 4M scale, +100 in LC0) |
+| History frames (n=7) | **absent** | **high** (substantial ChessFormer gain) |
+| Rule state (castle/ep/rep/50mv) | **absent** | **high** (net is blind to legal-draw state) |
+| Side-to-move flip | absent (we have side emb — partial) | medium |
+| Distributional teacher | **absent — BC on SF argmax** | **critical** (AV > BC, DeepNoc; visits > argmax, ChessFormer) |
+| QAT | one unreproducible win | medium (recipe re-derivable) |
+| Scale | 6.4M vs their 4-191M | fine — ablation class is 2.5-9M |
+
+## 4. Experiment queue v3 (each isolated, game-level verified)
+
+| # | Experiment | What it isolates | Cost on our box | Evidence base |
+|---|---|---|---|---|
+| 0 | BC-at-37.9M (RUNNING, ~70% done) | data alone, fixed v1 design | sunk | our control |
+| 1 | **AV head on the same 37.9M shard** | label paradigm (soft vs one-hot) at fixed data | ~5h GPU | DeepNoc Table (AV>BC); our AV infra |
+| 2 | **GAB on** (v3-lite: GAB + castle/ep/rep, no history) | positional encoding + rule state | ~5h GPU | ChessFormer Table 5 (+83); Braun input design |
+| 3 | **8-frame history input** (build on #2) | single-frame blindness | ~8h GPU + data build (ChessBench lacks history — use LC0/self-play games or synth) | ChessFormer history ablation |
+| 4 | **LC0-600v distribution distillation** on our 2M positions (LC0 CPU, 1-3s/pos ≈ CPU-days) | teacher quality: SF-argmax vs searched visit distribution | CPU-only, parallelizable with GPU runs | ChessFormer §5.1 exact method |
+| 5 | **QAT re-derivation** on the winner of 1-3 (capped activations + on-policy distill flavor) | the +233 mechanism | ~5h GPU | 2026 QAT line; Braun §4.3.6 |
+| 6 | Move-conditioned trunk (DeepNoc AV-in-trunk) | policy expressiveness ceiling; 35× inference | ~6h GPU, spec decision after | DeepNoc; Jenner probes |
+
+Order rationale: 1 and 2 are cheap, isolated, and attack the two highest-
+severity gaps (labels, encoding). 4 is CPU-side and can run concurrently
+with everything — its output (searched-distribution labels) upgrades every
+later run. 3 needs a data decision. 6 is the big-rewrite item, deliberately
+last among the cheap levers.
+
+Explicitly rejected, with sources: search-heavy self-play at our compute
+(Braun: 3251 Elo costs 20 GPU-days at 8×4070S; we have ~1/50th of that);
+GNN representations (AlphaGateau; ChessFormer beats it with plain
+transformers); puzzle-accuracy objectives (Miłosz: −260 Elo); aggressive
+data filtering (Tracking-vs-Deciding: r≈200 weighting destroys tracking);
+bare RoPE-on-squares encodings (ChessFormer's geometric critique).
+
+## 5. Verification log
+
+- arXiv API queries (2026-10-22 ~21:13 UTC): "searchless chess",
+  "ChessFormer", "amortized planning"/AlphaZero chess, QAT generalization,
+  Ceres MCTS-free (0 results — struck from citations).
+- Full texts: arxiv.org/html/2609.37447v1 (Braun), arxiv.org/html/
+  2603.29761v1 (Tracking), arxiv.org/html/2605.19091v1 (ChessFormer incl.
+  appendices A-C); DeepNoc per its v2 abstract + ChessFormer's critique.
+- lczero.org/blog (2026-06 posts confirm active LC0 + Chessformer era).
+- Our extraction of Braun/ChessFormer internals: agent-processed saved
+  full texts (same files cited above).
