@@ -876,11 +876,14 @@ Two matches:
 +136 Elo over the old champion under tc=15+0.2.
 
 Caveats recorded honestly:
-- **Provenance gap**: the quantizer script that produced net_q_v2 (Oct 3)
-  is gone (sibling-session artifact, likely /tmp-wiped). The LOQW format is
-  verified in-engine (NetQ o=0 path) and loqw_sim.py is the Python parity
-  reference. Reconstruction of the recipe (QAT lineage, source checkpoint)
-  is open.
+- **Provenance RESOLVED (2026-10-23)**: the quantizer was never lost —
+  `trainer/export_int8.py` (calibrated PTQ, exact centered-madd integer
+  path) and `train.py --qat` (quantized-projected SGD) exist since commit
+  0b9795b (Oct 4). net_q ≡ net_q_v2 ≡ INT8 of bc/net_e1.pt (cos 1.0000).
+  The +233-over-its-own-FP32-parent effect is therefore REPRODUCIBLE and
+  under test: chain4 exports the BC control through the same pipeline and
+  plays FP32-vs-INT8 of the SAME net (200 games). If the bonus replicates,
+  it is a near-free +100-class lever on every future net.
 - **TC-depth decomposition: RESOLVED, no confound.** Both matches ran at the
   default `RecyclePasses=1` — a single trunk forward per move for both
   engines regardless of speed (uci.cpp:65). Wall-clock speed cannot buy
