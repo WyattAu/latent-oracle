@@ -17,6 +17,14 @@ closes with those.
 (torch, Muon, mathlib-free), fastchess SPRT harness, the self-play loop
 (37 min / 10k games).
 
+**High-level strategy (2026-10-22):** `RESEARCH-HIGHLEVEL.md` supersedes
+the data-first path — verified 2026 sources (ChessFormer ICLR'26 + LC0,
+Prior-Directed Exploration Aug'26, Tracking-vs-Deciding Mar'26, Braun's
+6.3M->3251-Elo self-play paper Sep'26, the 2026 QAT line) reorder the
+agenda to: label paradigm (AV soft targets) > GAB/rule-state inputs >
+move-conditioned trunk > QAT re-derivation, with data scaling demoted to a
+control arm. "Ceres" struck from citations (unverifiable).
+
 **Trainer environment:** the persistent venv is
 `/home/wyatt/.venvs/chess/bin/python` (torch 2.6.0+cu124, CUDA, python-chess).
 `/tmp/opencode/venv` is NOT durable — `/tmp` gets wiped between sessions, so

@@ -16,7 +16,7 @@ gate so the question cannot be re-litigated without new evidence.
 | Line | Target the policy learns | Why the searchless case breaks |
 |------|---------------------------|-------------------------------|
 | AlphaZero / Gumbel AlphaZero | MCTS visit distribution + bootstrapped value | The target *is* the search. Removing MCTS removes the target; the network policy is then trained on itself. |
-| Ceres (MCTS-free AZ, Inria 2024) | one-step TD(λ) actor-critic with gating + target networks | Works at 1000× fewer env steps on Atari, i.e. it removes the *search cost*, not the *need for a better-than-policy target*; still requires an asymmetric critic and careful anti-forgetting gating. |
+| ~~Ceres~~ (could not be verified on arXiv 2026-10-22 — see RESEARCH-HIGHLEVEL.md; struck from citations) | — | Works at 1000× fewer env steps on Atari, i.e. it removes the *search cost*, not the *need for a better-than-policy target*; still requires an asymmetric critic and careful anti-forgetting gating. |
 | Self-imitation (our s4/s5) | winner moves of own games | Information-thin at small scale: measured `+2.32 ± 3.19` (10k games) and `−1.16 ± 3.93` (30k games). |
 | DeepNoc / ChessFormer / Dragon | fixed strong oracle (SF search statistics), supervised | No reward to hack: the target cannot move. Divergence is bounded by the oracle. |
 | Verifier-free RL (R-Zero-style, 2025) | model-as-its-own-verifier, bootstrapped | Chess results absent; same self-referential failure mode as our GRPO. |
