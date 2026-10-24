@@ -936,34 +936,41 @@ verified 100000/100000 board-exact. 37.9M-record shard converted; 74k-step
 1-epoch BC run training (fast mask path, ~6h). Question it answers: does
 20x the champion's data at the champion's architecture move the ladder?
 
-## 2026-10-24 — DATA SCALING VERDICT: +405.5 ± 35.3; NEW CHAMPION
-- **bc40m control (v1 arch, 8×256, 37.9M ChessBench records, 1 epoch fp32
-  batch 384, 99k steps) beats the old champion net_q_v2 by +405.5 ± 35.3**
-  (150 pairs, WW=105 WD=37 split=8 LD=0 LL=0 — 91.2% score, ZERO losses in
-  300 games). PGN recount authoritative. Path/TC confounds excluded: both
-  single-forward (RP=1), engine FP32 path verified correct (60/60 vs
-  torch/lonw_sim on midgame positions).
-- **New champion: /home/wyatt/data/runs/bc_avlabels40m/net_e0_ema.bin**
-  (FP32 LONW blob, 25.8MB). net_e0.bin ≡ net_e0_ema.bin also available.
-  Its INT8 export exists but FAILS parity (5/50) and plays −147 vs its own
-  FP32 — do not ship INT8 until the defect is found.
-- Context: old champion lineage = 23M-record run; +405 for 1.65× data +
-  1.65× optimizer exposure. This is the largest single jump of the project
-  and confirms loop-1's "data-starved" verdict at the BC level.
-- **GAB-v3-lite arm (same 37.9M records, from scratch, --v3 --gab):
-  −499.7 ± 44.6 vs old champion** (150 pairs, score 5.3%). Catastrophically
-  below the equal-data v1 control (~900 Elo swing vs the control arm).
-  As-run negative: from-scratch v3-lite at 1 epoch does not converge to
-  competitive strength (DeepNoc's v3 lineage was warm-started; ChessFormer's
-  GAB gain assumed their full recipe). Deprioritized; revisit only with
-  warm-start from bc40m + longer schedule.
-- **AV arm (soft win-prob targets, same records/arch/exposure): trained**
-  (HL-Gauss loss 4.24→3.2, |E[win]−wp| ≈ 0.08). Game verdict pending — the
-  AV checkpoint cannot enter the C++ engine; puzzle eval crashed on a model
-  construction mismatch (fix queued). No verdict yet.
-- Absolute Elo anchor for the new champion: SF ladder (2000/2200/2400)
-  launched, results pending.
-- Scaling next step: ChessBench AV train shards 4–15 downloading
-  (12 × ~1.3GB, ~114M more records → ~150M total). Plan: convert with
-  bag_to_shard.py, train same recipe 1 epoch (fp16, batch 384, ~4 days on
-  the 2060), ladder vs bc40m.
+## 2026-10-24 — CORRECTED: CHAMPION RETAINS; bc40m ARM INVALID (exposure-confounded)
+**CORRECTION of an earlier entry written this day** (which claimed "+405.5 new
+champion"): that reading inverted the recount attribution. The recount script
+prints `engine1 (White of game 1) = <name>` BEFORE the counts; in the chain4
+ladder and its rerun engine1 was **champ**, so +405.5/+424.3 were CHAMP's Elo
+over bc40m, not bc40m's over champ. Lesson codified: never read a recount
+without its attribution line (do not `tail -3` past it).
+
+True, fully consistent measurement set (all PGN-recount, attribution-checked):
+- **champ (net_q_v2) +405.5 ± 35.3 over bc40m** (150 pairs) and +424.3 ± 64.0
+  in an independent rerun (50 pairs). Champ is +330.2 ± 51.7 over bc23m-fp32.
+- **bc23m-fp32 +117.2 ± 26.0 over bc40m**: the 37.9M ChessBench control is
+  WORSE than the old 23M-era net's FP32 form at equal play conditions.
+- **bc40m −798 ± 175 vs SF-UCI-2000** (50 pairs, score 1%), and 5.8% on the
+  local 500-puzzle suite (old net: 46.2%). Puzzle diagnosis was CORRECT —
+  bc40m is simply a weak net; the "games vs puzzles" inversion never existed.
+- **GAB-v3-lite −499.7 ± 44.6 vs champ** ✓ (as originally reported).
+- **INT8-old +251.9 ± 31.3 over FP32-old** (fresh calibration; calibration-
+  insensitive: champ vs fresh-calib −12.2 ± 24.6). bc40m INT8 −147.2 ± 26.8
+  vs its own FP32 (normal PTQ damage; its export also fails parity 5/50).
+- Netless-engine baseline: −177.2 ± 39.4 vs bc23m-fp32 (useful floor).
+
+Why the bc40m arm failed — **exposure confound, not a data verdict**: bc_v1
+trained 150M positions over 3 epochs; bc_v2 (champ parent) ran multi-epoch on
+~122M-record shards; the bc40m control saw a single pass of 37.9M records
+(38M samples). The arm is ~3-12× undertrained relative to the lineage it was
+laddered against. Loop 1's data question remains OPEN at matched exposure.
+
+Also this day (verified, stands):
+- lonw_sim.py parser fixed (was skipping per-Linear biases → all tensors after
+  L0.Wq were misaligned). net_e1.bin now bit-exact vs net_e1.pt, and
+  engine-FP32 == lonw_sim == torch 60/60 on midgame positions: the engine's
+  FP32 path is correct. (An earlier 20%-agreement reading was a probe bug —
+  the 3-way probe never sent `setoption WeightsFile`, so the engine played
+  netless.)
+- ChessBench AV shards 4–15 downloaded (12 × ~1.3GB) and a 16-bag ~150M-record
+  shard conversion produced. NOT queued for training until the exposure
+  question is settled — next GPU slot goes to a matched-exposure control.
