@@ -229,3 +229,27 @@ UCI wrapper (uci_chessbench_av.py) are preserved for the revisit.
   black=pt+8). The champion's inference path is verified bit-faithful.
 
 **Program state: all 10 loops closed.**
+
+## Loop 11 — high-level design arms (2026-10-23/24) — MEASUREMENT CRISIS RESOLVED
+Arms run on the 37.9M ChessBench shard (bag_to_shard, orientation-fixed):
+- BC control (v1, 1 epoch = 38M samples): exports net_e0(_ema). INVALID as a
+  data-scaling verdict — exposure-confounded (lineage trained 150M×3).
+- AV arm (soft win-prob targets, same data/steps): trained; 16.75% on the
+  2000-puzzle Lichess set vs bc40m's 10.4% — AV arm is the better new
+  artifact on diagnostics; game verdict still pending (no engine blob).
+- GAB-v3-lite (from scratch, --v3 --gab): −499.7 ± 44.6 vs champ. Negative
+  as-configured (DeepNoc v3 lineage was warm-started; revisit only with
+  warm-start).
+- Champion retained: net_q_v2 +405.5/+424.3 over bc40m, +330 over bc23m-fp32.
+- INT8: old net's quantized form +252 over its FP32 (calibration-insensitive,
+  replicated); bc40m's INT8 −147 vs its FP32 with parity FAIL 5/50 (open
+  export defect). The "+233 mechanism" is old-net-specific.
+- Engine FP32 path verified correct: lonw_sim parser bug fixed (missing
+  per-Linear biases); engine == torch == sim 60/60 midgame.
+- Measurement lessons (codified in RESULTS.md): (1) never read a recount
+  without its engine1 attribution line; (2) probe scripts must verify net
+  load state (the 3-way probe played netless and produced a fake "FP32-path
+  bug"); (3) puzzle diagnostics were RIGHT when games "disagreed" — check
+  the measurement chain before the theory.
+- Next: chain6 matched-exposure control (old pool @ 38M samples) decides
+  whether bc40m's weakness was data or exposure; then the 150M shard.
