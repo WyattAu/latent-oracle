@@ -880,10 +880,27 @@ Caveats recorded honestly:
   `trainer/export_int8.py` (calibrated PTQ, exact centered-madd integer
   path) and `train.py --qat` (quantized-projected SGD) exist since commit
   0b9795b (Oct 4). net_q ≡ net_q_v2 ≡ INT8 of bc/net_e1.pt (cos 1.0000).
-  The +233-over-its-own-FP32-parent effect is therefore REPRODUCIBLE and
-  under test: chain4 exports the BC control through the same pipeline and
-  plays FP32-vs-INT8 of the SAME net (200 games). If the bonus replicates,
-  it is a near-free +100-class lever on every future net.
+- **INT8-bonus verdict (2026-10-24): REAL but OLD-NET-SPECIFIC — NOT a
+  general lever.** The replication battery landed:
+  * Re-export through export_int8 reproduces the champion's s8 weights
+    43/43 bit-exactly; only activation-calibration scales differ (few %).
+    Champion-calib vs fresh-calib blobs tie in games (−12.2 ± 24.6, 100
+    pairs) — the +233 is calibration-insensitive.
+  * OLD net: FP32 blob loses to its own INT8 by −251.9 ± 31.3 (fresh
+    calib) — replicates the original +233.
+  * NEW net (bc40m): FP32 BEATS its own calibrated INT8 by +147.2 ± 26.8
+    (100 pairs). The bonus INVERTS on a stronger net.
+  * Mechanism findings: lonw_sim.py's parser was missing the per-Linear
+    biases (fixed; net_e1.bin now bit-exact vs net_e1.pt, and
+    engine-FP32 == lonw_sim == torch 60/60 on midgame positions — the
+    FP32 engine path is CORRECT). An earlier 20%-agreement reading was a
+    PROBE BUG (the 3-way probe never sent `setoption WeightsFile`, so the
+    engine played netless). Engine-FP32 vs engine-INT8 agree 57/60 on
+    midgame moves; the old net's +250 from ~5% policy flips stands as a
+    real but idiosyncratic quantization-noise effect on a brittle net.
+  * ALSO: bc40m's INT8 export FAILS the NetQ parity gate (5/50) — open
+    defect in export_int8 on the new weight distribution; investigate
+    before shipping any INT8 of the new champion.
 - **TC-depth decomposition: RESOLVED, no confound.** Both matches ran at the
   default `RecyclePasses=1` — a single trunk forward per move for both
   engines regardless of speed (uci.cpp:65). Wall-clock speed cannot buy
@@ -918,3 +935,35 @@ caught by reconstructing FENs from shard records vs source; fixed and
 verified 100000/100000 board-exact. 37.9M-record shard converted; 74k-step
 1-epoch BC run training (fast mask path, ~6h). Question it answers: does
 20x the champion's data at the champion's architecture move the ladder?
+
+## 2026-10-24 — DATA SCALING VERDICT: +405.5 ± 35.3; NEW CHAMPION
+- **bc40m control (v1 arch, 8×256, 37.9M ChessBench records, 1 epoch fp32
+  batch 384, 99k steps) beats the old champion net_q_v2 by +405.5 ± 35.3**
+  (150 pairs, WW=105 WD=37 split=8 LD=0 LL=0 — 91.2% score, ZERO losses in
+  300 games). PGN recount authoritative. Path/TC confounds excluded: both
+  single-forward (RP=1), engine FP32 path verified correct (60/60 vs
+  torch/lonw_sim on midgame positions).
+- **New champion: /home/wyatt/data/runs/bc_avlabels40m/net_e0_ema.bin**
+  (FP32 LONW blob, 25.8MB). net_e0.bin ≡ net_e0_ema.bin also available.
+  Its INT8 export exists but FAILS parity (5/50) and plays −147 vs its own
+  FP32 — do not ship INT8 until the defect is found.
+- Context: old champion lineage = 23M-record run; +405 for 1.65× data +
+  1.65× optimizer exposure. This is the largest single jump of the project
+  and confirms loop-1's "data-starved" verdict at the BC level.
+- **GAB-v3-lite arm (same 37.9M records, from scratch, --v3 --gab):
+  −499.7 ± 44.6 vs old champion** (150 pairs, score 5.3%). Catastrophically
+  below the equal-data v1 control (~900 Elo swing vs the control arm).
+  As-run negative: from-scratch v3-lite at 1 epoch does not converge to
+  competitive strength (DeepNoc's v3 lineage was warm-started; ChessFormer's
+  GAB gain assumed their full recipe). Deprioritized; revisit only with
+  warm-start from bc40m + longer schedule.
+- **AV arm (soft win-prob targets, same records/arch/exposure): trained**
+  (HL-Gauss loss 4.24→3.2, |E[win]−wp| ≈ 0.08). Game verdict pending — the
+  AV checkpoint cannot enter the C++ engine; puzzle eval crashed on a model
+  construction mismatch (fix queued). No verdict yet.
+- Absolute Elo anchor for the new champion: SF ladder (2000/2200/2400)
+  launched, results pending.
+- Scaling next step: ChessBench AV train shards 4–15 downloading
+  (12 × ~1.3GB, ~114M more records → ~150M total). Plan: convert with
+  bag_to_shard.py, train same recipe 1 epoch (fp16, batch 384, ~4 days on
+  the 2060), ladder vs bc40m.
