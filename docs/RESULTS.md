@@ -974,3 +974,32 @@ Also this day (verified, stands):
 - ChessBench AV shards 4–15 downloaded (12 × ~1.3GB) and a 16-bag ~150M-record
   shard conversion produced. NOT queued for training until the exposure
   question is settled — next GPU slot goes to a matched-exposure control.
+
+## 2026-10-25 — SHARD AUDIT + MATCHED-EXPOSURE VERDICT (chain6) + A/B (wdl fix)
+- **chain6 (old pool @ bc40m's exact exposure: 98,750 steps × 384, fp32):
+  v2pool +424.3 ± 52.3 over bc40m** (75 pairs, score 92%) and **v2pool
+  −82.6 ± 29.2 vs champ** — the old pool at ONE pass of 38M samples nearly
+  reaches the champion (which had 150M×3-class exposure + the INT8 effect).
+  At matched exposure the ChessBench pool is ~424 Elo behind the old pool.
+- **Shard audit (chessbench_bc40m)**: targets legal 300/300, mask sidecar
+  complete (37,924,824) and covers targets 300/300, conventions consistent
+  (a1=0, black pt+8), boards 100% unique, memorization probe 100%/256
+  records. The data is CONSISTENT — not scrambled.
+- **Own-shard fit**: bc40m net matches only **4.2%** of its own training
+  targets (chance ≈ 3%) vs v2pool **52.9%** on its own. The difference is
+  conditional target entropy: bc_v2's targets are consistent/predictable
+  (self-play-era style); ChessBench AV targets are deep-Stockfish single
+  moves — one pass gives too little signal per sample.
+- **A/B on 2M-record prefixes (3k steps)**: as-is vs wdl-fixed
+  (wdl=(pw,0,0) → (pw,(1−pw)/2,(1−pw)/2)). Fix cures the value collapse
+  (loss 0.86–1.0 vs 0.0000) but the policy stall is UNCHANGED (match
+  ~0.035 both). The `(pw,0,0)` bug was real (value head trained to
+  always-win; engine ignores value) but is not the policy story.
+  bag_to_shard.py now writes proper triples for future conversions.
+- **Exposure test launched (chain7/watcher)**: bc40m continued +2 epochs
+  (114M total samples) from net_e0.pt; ladder vs bc40m / v2pool / champ
+  fires on training exit. Decides whether ChessBench closes the gap at
+  3× exposure before any 150M-record commitment.
+- **behavioral_cloning_data.bag (34GB, DeepMind) downloading** — GM-move
+  targets (DeepNoc BC-9M: 65.7% puzzles), the natural low-entropy BC pool
+  for our trainer if the exposure test leaves a gap.
