@@ -177,3 +177,53 @@ separated). "Game edge" for the cumulative signed version.
 - [ ] isotonic calibration on sprt corpus
 - [ ] edge_tracker.py
 - [ ] validation 1-4 with numbers
+
+## 9. Validation results (2026-10-26, bc40m-vs-sf ladder, net_e1 evaluator)
+
+Setup: isotonic calibration on 6,742 positions (400 games) — ECE 0.4805 →
+0.4775: the map is near-identity, i.e. **the wdl head is already
+probability-calibrated on engine-vs-engine games** (ECE ≈ the irreducible
+outcome-noise floor). Raw values are usable directly.
+
+Per-move EVR / oracle-regret on 50-200 games per class:
+
+| class  | n   | EVR/move | oracle/move | game score |
+|--------|-----|----------|-------------|------------|
+| sf2000 | 100 | 0.0264   | 0.1870      | 0.985      |
+| sf2200 | 50  | 0.0222   | 0.1756      | 0.990      |
+| sf2400 | 50  | 0.0114   | 0.1426      | 0.980      |
+| bc40m  | 200 | 0.0026   | 0.0617      | 0.015      |
+
+**Finding — the reference-policy inversion.** My prediction (bc40m highest
+EVR: weakest player, most visible errors) was INVERTED. bc40m shows the
+LOWEST EVR (0.0026) and the lowest oracle regret, despite losing 98.5%.
+Interpretation: with a same-family weak evaluator (net_e1), EVR measures
+**style agreement with the evaluator**, not error magnitude:
+
+- bc40m and the evaluator share a training lineage — their move preferences
+  coincide, so bc40m's objective blunders are invisible to the metric.
+- The SF players' (better) moves deviate from net_e1's preferences; their Q
+  under the weak value head looks mediocre, so they appear to "regret".
+- Within the SF ladder the ordering IS monotone (sf2400 < sf2200 < sf2000):
+  stronger play aligns better with universal features (material/tactics)
+  that even a weak value head perceives.
+
+AUC(-ownEVR → win-vs-loss) = 0.4708 ≈ chance, as expected under inversion.
+
+**Consequences:**
+1. EVR with a self-referential evaluator is a *same-lineage* metric: valid
+   for comparing OUR training runs against a FIXED reference net (the actual
+   use case), invalid across lineages/evaluator-weaker players.
+2. True error magnitude needs evaluator strength ≫ player strength — either
+   an external oracle (SF fixed-depth Q, keeping the policy-weighted
+   expectation) or our strongest net as the fixed reference. Hybrid variant
+   queued: SF supplies Q, our net supplies π and calibration.
+3. The oracle-regret column inverts identically — this is an
+   evaluator-strength limitation, not an EVR-specific flaw.
+4. The metric's stated property "measures deviation from one's own
+   standard" is precisely what it did: bc40m deviates least from
+   net_e1's standard because it IS net_e1's standard.
+
+Honest bookkeeping: the formulation stands; the validation falsified the
+"one evaluator fits all" assumption and localized exactly which comparisons
+the metric supports.
