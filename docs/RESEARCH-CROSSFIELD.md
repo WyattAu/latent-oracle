@@ -140,3 +140,33 @@ The Elo-scale verdict (vs champ) is Gate 1's ladder; the puzzle number is
 the same-benchmark sanity check. If the marquee lands ≪61%, the BC bag's
 later slices are redundant (game-ordered data → slice0-1 already cover the
 distribution) and the union-pool branch takes over.
+
+## 9. Competitive landscape sweep (2026-10-30): the direct competitor
+
+**mateuszgrzyb-pl/searchless-chess** (GitHub, 8★) — the closest project to
+ours found in the field sweep: solo researcher, value-based searchless move
+selection (evaluates positions with deep-Stockfish cp, argmax over moves —
+our exact design), ViT/ResNet models, 316M deduplicated lichess+SF
+positions, 200+ hours on an A100.
+
+| model | params | claimed ELO | ELO/1M params |
+|---|---|---|---|
+| ResNet-XL | 24.7M | 1719 | 70 |
+| **ViT-Small** | 2.64M | **1817** | 688 |
+| **ViT-Medium** | 9.5M | **1960** | 206 |
+
+Scale caveat: their ELO is **fitted from Lichess puzzle-tier accuracy**
+(1200 puzzles, 12 tiers), NOT engine matches — not directly comparable to
+our SF-limit ladder (−129/−193/−252 at 2000/2200/2400). Still: same band,
+same approach, solo scale — **our closest peer**.
+
+Assets: models public (Keras .zip releases), dataset public on HuggingFace
+(**mateuszgrzyb/lichess-stockfish-normalized**, 316M positions as parquet).
+Notable: their dataset is the OLD-POOL STYLE (lichess + SF cp values) —
+independent confirmation that human/cp data is the trainable target type.
+
+Actions taken: none yet. Options: (a) port their ViT-Medium weights into a
+ladder-able wrapper for a true engine-match comparison (Keras→torch port,
+medium effort); (b) union their 316M cp-annotated positions with our
+lichess pool for a Gate-1-merge-branch scale-up; (c) adopt their
+puzzle-tier evaluation as a secondary public-facing metric.
