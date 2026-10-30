@@ -27,20 +27,23 @@ Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_
 // Own remaining time in milliseconds (INT64_MAX when unknown). Below
 // kLowTimeMs the neural path defers to the instant PST path: the reference
 // inference costs ~0.3-0.7 s and flagging wastes a full point.
+// value_max: DeepNoc AC-line strategy — evaluate every child with the value
+// head and play the move minimizing the opponent's expected score
+// (~N forwards per decision instead of 1).
 Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                  const nn::Net& net, std::int64_t own_time_ms);
+                  const nn::Net& net, std::int64_t own_time_ms, bool value_max = false);
 
 // Same gates, INT8 quantized inference.
 Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                    const nn::NetQ& net, std::int64_t own_time_ms);
+                    const nn::NetQ& net, std::int64_t own_time_ms, bool value_max = false);
 
 // History-conditioned variants (SPEC-BLOB-V3 HiCo): hist is OLDEST FIRST,
 // up to 3 plies. Nets without a trained history tail ignore it exactly.
 Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
                   const nn::Net& net, std::int64_t own_time_ms, const nn::NetHistory& hist,
-                  bool mirror_avg = false);
+                  bool mirror_avg = false, bool value_max = false);
 Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& key_history,
                     const nn::NetQ& net, std::int64_t own_time_ms, const nn::NetHistory& hist,
-                    bool mirror_avg = false);
+                    bool mirror_avg = false, bool value_max = false);
 
 }  // namespace lo::engine

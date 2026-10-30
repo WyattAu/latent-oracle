@@ -170,3 +170,23 @@ ladder-able wrapper for a true engine-match comparison (Keras→torch port,
 medium effort); (b) union their 316M cp-annotated positions with our
 lichess pool for a Gate-1-merge-branch scale-up; (c) adopt their
 puzzle-tier evaluation as a secondary public-facing metric.
+
+## 10. Loop G — value-max play: FALSIFIED (2026-10-30, decisive)
+
+Implemented the DeepNoc AC-line strategy in the engine (ValueMax UCI
+option: evaluate every legal afterstate with the value head, play the move
+minimizing the opponent's expected score; ~N forwards per move). Ladder:
+**champ-policy +441 ± 54 over champ-value-max** (75 pairs, 92.7%, zero
+losses; value-max is also 12× slower per move).
+
+Why it fails here and worked for DeepNoc: our value head is trained on
+*game outcomes of human games* — it predicts who wins a position, not
+which move is best. Ranking afterstates by it re-asks the policy question
+with a worse instrument (the afterstate distribution is off-policy). Deep
+Noc's value-max worked because their AV head was trained specifically for
+move evaluation (action-conditioned values from deep search).
+
+Consequence: the road to 2500 runs through **data + policy quality**
+(marquee → Gate 2 INT8 → GM-move data, policy-head QAT, AV head trained
+for move evaluation), not inference-time tricks. The ValueMax option stays
+in the engine as a research switch.

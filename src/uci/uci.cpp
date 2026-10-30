@@ -63,7 +63,8 @@ struct Session {
     std::optional<lo::nn::Net> net;      // FP32 ("LONW")
     std::optional<lo::nn::NetQ> netq;    // INT8 ("LOQW"); preferred when set
     int recycle = 1;                     // RecyclePasses (looped trunk)
-    bool mirror_avg = false;             // MirrorAvg: REVERTED to off. The first
+    bool mirror_avg = false;
+    bool value_max = false;             // MirrorAvg: REVERTED to off. The first
                                          // reading of the h2h had the fastchess sign
                                          // backwards -- the PGN recount shows the PLAIN
                                          // side won 55% (220 vs 180 of 400), i.e. MirrorAvg
@@ -143,6 +144,7 @@ void handle_line(Session& s, const std::string& line) {
         std::cout << "option name WeightsFile type string default\n";
         std::cout << "option name RecyclePasses type spin default 1 min 1 max 8\n";
         std::cout << "option name MirrorAvg type check default false\n";
+        std::cout << "option name ValueMax type check default false\n";
         std::cout << "option name LoopCDAlpha type string default 0.0\n";
         std::cout << "uciok\n" << std::flush;
     } else if (cmd == "isready") {
@@ -183,6 +185,9 @@ void handle_line(Session& s, const std::string& line) {
             } else if (name == "MirrorAvg") {
                 const std::string v = line.substr(vpos + 7);
                 s.mirror_avg = (v == "true" || v == "1");
+            } else if (name == "ValueMax") {
+                const std::string v = line.substr(vpos + 7);
+                s.value_max = (v == "true" || v == "1");
             } else if (name == "RecyclePasses") {
                 try {
                     s.recycle = std::max(1, std::stoi(line.substr(vpos + 7)));
@@ -230,10 +235,10 @@ void handle_line(Session& s, const std::string& line) {
             hist.n = static_cast<std::uint8_t>(std::min<std::size_t>(3, s.game_moves.size()));
             if (s.netq)
                 best = engine::bestmove_net_q(s.root, s.history, *s.netq, own_time, hist,
-                                              s.mirror_avg);
+                                              s.mirror_avg, s.value_max);
             else if (s.net)
                 best = engine::bestmove_net(s.root, s.history, *s.net, own_time, hist,
-                                            s.mirror_avg);
+                                            s.mirror_avg, s.value_max);
             else
                 best = engine::bestmove(s.root, s.history);
         }

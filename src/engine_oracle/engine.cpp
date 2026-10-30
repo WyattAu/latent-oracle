@@ -223,7 +223,8 @@ template <typename NetT>
 Move bestmove_net_impl(const PositionState& p, const std::vector<std::uint64_t>& key_history,
                        const NetT& net, std::int64_t own_time_ms,
                        const nn::NetHistory* hist = nullptr,
-                       bool mirror_avg = false) {
+                       bool mirror_avg = false,
+                       bool value_max = false) {
     // Low clock: the net call costs ~0.3-0.7 s; the PST path costs ~us.
     // Playing a weaker move beats losing on time.
     if (own_time_ms >= 0 && own_time_ms < 10000) return bestmove(p, key_history);
@@ -261,9 +262,39 @@ Move bestmove_net_impl(const PositionState& p, const std::vector<std::uint64_t>&
 
     for (std::uint32_t i = 0; i < ml.count; ++i) {
         const Move m = ml.moves[i];
-        float sc = out.scores[move_from(m) * 64 + move_to(m)];
-        if (move_type(m) == MT_PROMO) sc += out.promo_logit[move_promo(m)];
-        if (mirror_avg) sc += mv.score_for(m);
+        float sc;
+        if (value_max) {
+            // Value-max strategy (DeepNoc AC-line): evaluate every child
+            // position with the value head and play the move that minimizes
+            // the opponent's expected score. Cost: one forward per legal move.
+            const PositionState vm_child = apply(p, m);
+            nn::NetHistory vm_hist;
+            const nn::NetHistory* vm_hist_ptr = nullptr;
+            if (hist) {
+                vm_hist = *hist;
+                if (vm_hist.n < 3) {
+                    vm_hist.from[vm_hist.n] = static_cast<std::uint8_t>(move_from(m));
+                    vm_hist.to[vm_hist.n] = static_cast<std::uint8_t>(move_to(m));
+                    vm_hist.n += 1;
+                }
+                vm_hist_ptr = &vm_hist;
+            }
+            const auto c_out = vm_hist_ptr ? net.evaluate(vm_child, *vm_hist_ptr)
+                                           : net.evaluate(vm_child);
+            float cw[3] = {c_out.wdl[0], c_out.wdl[1], c_out.wdl[2]};
+            if (mirror_avg) {
+                MirrorView<std::remove_const_t<decltype(c_out)>, NetT> cmv;
+                run_mirror_view(vm_child, net, vm_hist_ptr, cmv);
+                for (int j = 0; j < 3; ++j) cw[j] = 0.5f * (cw[j] + cmv.out.wdl[j]);
+            }
+            const float opp_score = cw[0] + 0.5f * cw[1];
+            sc = 1.0f - opp_score;
+            if (move_type(m) == MT_PROMO) sc += 0.02f * out.promo_logit[move_promo(m)];
+        } else {
+            sc = out.scores[move_from(m) * 64 + move_to(m)];
+            if (move_type(m) == MT_PROMO) sc += out.promo_logit[move_promo(m)];
+            if (mirror_avg) sc += mv.score_for(m);
+        }
 
         const PositionState child = apply(p, m);
         if (insufficient_material(child)) {
@@ -292,25 +323,25 @@ Move bestmove_net_impl(const PositionState& p, const std::vector<std::uint64_t>&
 }
 
 Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                  const nn::Net& net, std::int64_t own_time_ms) {
-    return bestmove_net_impl(p, key_history, net, own_time_ms);
+                  const nn::Net& net, std::int64_t own_time_ms, bool value_max) {
+    return bestmove_net_impl(p, key_history, net, own_time_ms, nullptr, false, value_max);
 }
 
 Move bestmove_net(const PositionState& p, const std::vector<std::uint64_t>& key_history,
                   const nn::Net& net, std::int64_t own_time_ms, const nn::NetHistory& hist,
-                  bool mirror_avg) {
-    return bestmove_net_impl(p, key_history, net, own_time_ms, &hist, mirror_avg);
+                  bool mirror_avg, bool value_max) {
+    return bestmove_net_impl(p, key_history, net, own_time_ms, &hist, mirror_avg, value_max);
 }
 
 Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& key_history,
-                    const nn::NetQ& net, std::int64_t own_time_ms) {
-    return bestmove_net_impl(p, key_history, net, own_time_ms);
+                    const nn::NetQ& net, std::int64_t own_time_ms, bool value_max) {
+    return bestmove_net_impl(p, key_history, net, own_time_ms, nullptr, false, value_max);
 }
 
 Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& key_history,
                     const nn::NetQ& net, std::int64_t own_time_ms, const nn::NetHistory& hist,
-                    bool mirror_avg) {
-    return bestmove_net_impl(p, key_history, net, own_time_ms, &hist, mirror_avg);
+                    bool mirror_avg, bool value_max) {
+    return bestmove_net_impl(p, key_history, net, own_time_ms, &hist, mirror_avg, value_max);
 }
 
 }  // namespace lo::engine
