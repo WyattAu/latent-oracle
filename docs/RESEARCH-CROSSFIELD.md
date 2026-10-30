@@ -111,3 +111,17 @@ no_grad — no gradient path). The proper ablation: `--distill1ply` in
 train.py — afterstate batch through the graph, stop-grad max as the value
 target, MSE loss at weight λ≈0.1. Cost ≈ 35× forwards on the distilled
 fraction; queue behind the marquee (GPU-bound).
+
+## 3.1 Loop C measured (2026-10-30, bcpool net, 513 held-out slice1 positions)
+
+- Margin predicts RP1→RP2 move-instability near-perfectly: change-rate
+  39.8/24.5/7.8/2.0/0.0% across margin quintiles (entropy: 1→24%).
+- **But on changed moves, RP2's move matches the human target only 18.4%
+  vs RP1's 47.4%** — the second pass moves AWAY from the trained policy.
+- Gating simulation: every threshold loses to always-RP1 (54.6% target
+  match vs ≤51.9% for the best gate).
+
+Verdict: for single-pass-BC nets the second pass is not weak search — it's
+an untrained policy drift. RecyclePasses=1 stays the default for BC-pool
+nets. The margin gate + this harness remain available for game-level Elo
+tests per served net (target-match ≠ Elo, but the burden of proof shifted).
