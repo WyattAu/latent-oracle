@@ -1003,3 +1003,31 @@ Also this day (verified, stands):
 - **behavioral_cloning_data.bag (34GB, DeepMind) downloading** — GM-move
   targets (DeepNoc BC-9M: 65.7% puzzles), the natural low-entropy BC pool
   for our trainer if the exposure test leaves a gap.
+
+## 2026-10-30 — DEEPNOC-PUZZLE CROSS-LINEAGE BENCHMARK (10k public suite)
+Our nets on DeepMind's published ChessBench puzzle CSV (10,000 puzzles,
+SF-best-move matching, converted to jsonl for score_puzzles):
+
+| net | pool / exposure | accuracy |
+|---|---|---|
+| v2pool | old lichess pool, 38M samples | **43.0%** |
+| net_e1 (champ parent) | same pool, 450M × 3 | **42.3%** |
+| bcpool (human-move BC) | BC pool, 38M samples | **34.7%** |
+| bc40m | ChessBench-AV, 38M | **10.4%** |
+| (published: DeepNoc BC-9M) | BC bag, 670M positions | 65.7% |
+| (published: DeepNoc GC-9M) | AV bag + value-max | 88.9% |
+| (published: Leela-CF-policy) | 3.25M GM games | 93.5% |
+
+Findings:
+1. **Puzzle accuracy saturates at ~43% by 38M samples** — the champ's extra
+   450M×3 exposure adds ZERO puzzle accuracy while carrying +83 Elo.
+   Puzzle accuracy ≠ strength, now measured within-lineage.
+2. **At equal Elo (bcpool ≈ v2pool within noise), the human-move net scores
+   8 points lower on tactical puzzles** — puzzle suites are biased strength
+   proxies across data types (the law extends across distributions).
+3. The AV-data net's 10.4% on SF-best-move puzzles confirms the target-type
+   diagnosis on DeepNoc's own benchmark.
+4. Our best nets sit at ~2/3 of DeepNoc's BC-9M with 1/17 of the data —
+   consistent with per-sample parity and a data-scale gap (the marquee
+   tests exactly this).
+Converted suite: /home/wyatt/data/chessbench/puzzles_deepnoc.jsonl.
