@@ -125,3 +125,18 @@ Verdict: for single-pass-BC nets the second pass is not weak search — it's
 an untrained policy drift. RecyclePasses=1 stays the default for BC-pool
 nets. The margin gate + this harness remain available for game-level Elo
 tests per served net (target-match ≠ Elo, but the burden of proof shifted).
+
+
+## 8. Data-scaling extrapolation for the BC pool (2026-10-30)
+
+DeepNoc BC-9M: 65.7% puzzles (670M-position bag). Our bcpool: 34.7% at 38M
+samples; v2pool: 43.0% at 38M (lichess distribution). The marquee passes
+~450M BC records (12× bcpool's exposure, 2/3 of DeepNoc's bag).
+
+Prediction (log-linear interpolation between our 38M point and DeepNoc's
+670M point, same bag): puzzle accuracy ≈ 34.7 + (65.7−34.7) × ln(450/38) /
+ln(670/38) ≈ 34.7 + 30.9 × 2.47/2.87 ≈ **61%** ± 4.
+The Elo-scale verdict (vs champ) is Gate 1's ladder; the puzzle number is
+the same-benchmark sanity check. If the marquee lands ≪61%, the BC bag's
+later slices are redundant (game-ordered data → slice0-1 already cover the
+distribution) and the union-pool branch takes over.
