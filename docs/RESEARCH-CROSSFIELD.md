@@ -190,3 +190,52 @@ Consequence: the road to 2500 runs through **data + policy quality**
 (marquee → Gate 2 INT8 → GM-move data, policy-head QAT, AV head trained
 for move evaluation), not inference-time tricks. The ValueMax option stays
 in the engine as a research switch.
+
+## 10. THE STACK HYPOTHESIS — the synthesis and the road to 2500
+(2026-10-30; synthesizes Loops G, the DeepNoc-puzzle benchmark, and the
+marquee)
+
+**The measured facts, stacked:**
+1. Value-max with the OUTCOME-trained value head: **−441** (Loop G) — the
+   outcome head cannot rank moves.
+2. Same bc40m net, AV-head move choice vs policy choice on DeepNoc's own
+   10k suite: **16.75% vs 10.4%** — the AV head (trained on move-conditioned
+   win% from deep SF) is the better move-chooser by 1.6×, on the same
+   weights.
+3. DeepNoc's AC-9M (AV head + value-max play): ~2100–2200; their GC-9M
+   (BC on human moves): 88.9% puzzles. They treated the two as ALTERNATIVES.
+
+**The hypothesis: STACK them.** One model, two sequential training phases:
+1. **Trunk: BC on human moves** (the marquee) — the learnable
+   representation; human moves are the learnable per-sample target.
+2. **Head: AV on SF move-values** (the 1.1TB AV bags) — the sharp
+   move-quality signal the BC trunk cannot learn from single moves.
+3. **Play: value-max over the AV head** — 1 forward per position, the AV
+   head ranks ALL legal moves natively (move-conditioned design), no
+   afterstate enumeration.
+
+This is DeepNoc's GC and AC lines fused into one model — their paper never
+combined them. Loop G's falsification explains why the stack needs the AV
+head (the outcome head fails at value-max), and the benchmark (16.75 vs
+10.4 same-net) shows the AV head is the better move-chooser even mid-stack.
+
+**The 2500 path:** marquee trunk (450M human moves) + AV head (the 1.1TB
+AV bags — 2144 shards, we have 4) + value-max serve + INT8/QAT. DeepNoc's
+AC-270M hit 2299 at 427B FLOPs with a worse trunk (AV-only training); the
+stack at our scale targets 2300–2500.
+
+**Representation lever — masked-square pre-training (vision: MAE):**
+before any policy/value training, pre-train the trunk to reconstruct
+randomly masked squares (15–30%) from the visible ones. Label-free — runs
+on ANY position database (the full 526M BC records, the lichess archive,
+the AV bags' positions). Teaches piece-interaction physics as a
+representation prior. The standard recipe that made ViTs data-efficient.
+
+**Immediate experiments:**
+- E1 (CPU, running): AV-head vs policy head CPU arena (30 games) —
+  game-level confirmation of the puzzle evidence.
+- E2 (GPU, after the marquee): stack training — marquee trunk + AV head on
+  the existing 37.9M AV records → ladder vs bcpool450 and champ.
+- E3: MAE pre-training ablation (masked-square reconstruction, 50M
+  positions, then the standard recipe).
+- E4: scale the AV head to 200+ AV shards (the 1.1TB bag subset).
