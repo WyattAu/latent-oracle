@@ -97,3 +97,17 @@ hypernet-generated biases; LoRA-style adapters per style band.
 A (implemented now — free, foundational) → C (engine-side, cheap) →
 B (training-loop change, the novel one) → D → E → F. All are independent
 of the marquee's scale verdict and compose with whatever Gate 1 picks.
+
+## 2.1 Loop B baseline measurement (2026-10-30, bcpool net)
+
+corr(v(s), minimax-1ply(s)) = **0.42** on 249 held-out slice0 positions,
+where minimax-1ply(s) = max_a (1 − v_opp(s⊕a)) over all legal afterstates
+computed with the same net. The net's static value captures less than half
+of the linear signal available from its own one-ply search — **the
+self-consistency gap (RESEARCH-EDGE §2.2) is large and measurable**.
+
+The CPU fine-tune proof was invalid (afterstate targets computed under
+no_grad — no gradient path). The proper ablation: `--distill1ply` in
+train.py — afterstate batch through the graph, stop-grad max as the value
+target, MSE loss at weight λ≈0.1. Cost ≈ 35× forwards on the distilled
+fraction; queue behind the marquee (GPU-bound).
