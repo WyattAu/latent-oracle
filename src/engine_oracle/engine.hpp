@@ -8,6 +8,7 @@
 #include "nn/netq.hpp"
 #include "position.hpp"
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
@@ -47,3 +48,7 @@ Move bestmove_net_q(const PositionState& p, const std::vector<std::uint64_t>& ke
                     bool mirror_avg = false, bool value_max = false);
 
 }  // namespace lo::engine
+
+namespace lo::uci {
+extern std::atomic<bool> g_stop;
+}  // namespace lo::uci

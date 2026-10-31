@@ -8,6 +8,8 @@
 #include <array>
 #include <limits>
 
+namespace lo::uci { extern std::atomic<bool> g_stop; }
+
 namespace lo::engine {
 
 namespace {
@@ -199,6 +201,8 @@ struct MirrorView {
     }
 };
 
+
+
 template <typename OutT, typename NetT>
 void run_mirror_view(const PositionState& p, const NetT& net, const nn::NetHistory* hist,
                      MirrorView<OutT, NetT>& mv) {
@@ -290,6 +294,9 @@ Move bestmove_net_impl(const PositionState& p, const std::vector<std::uint64_t>&
             const float opp_score = cw[0] + 0.5f * cw[1];
             sc = 1.0f - opp_score;
             if (move_type(m) == MT_PROMO) sc += 0.02f * out.promo_logit[move_promo(m)];
+            if (lo::uci::g_stop.load(std::memory_order_relaxed) && sc > best_score) {
+                return m;   // stop: play the best child found so far
+            }
         } else {
             sc = out.scores[move_from(m) * 64 + move_to(m)];
             if (move_type(m) == MT_PROMO) sc += out.promo_logit[move_promo(m)];

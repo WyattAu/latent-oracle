@@ -21,6 +21,10 @@
 
 namespace lo::uci {
 
+std::atomic<bool> g_quit{false};
+std::atomic<bool> g_stop{false};
+std::atomic<bool> g_reader_done{false};
+
 namespace {
 
 constexpr std::size_t kRingCapacity = 256;
@@ -31,9 +35,6 @@ struct Line {
 };
 
 SpscRing<Line, kRingCapacity> g_ring;
-std::atomic<bool> g_quit{false};
-std::atomic<bool> g_stop{false};
-std::atomic<bool> g_reader_done{false};
 
 void reader_loop() {
     std::string line;
