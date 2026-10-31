@@ -339,3 +339,10 @@ Target: bcpool450 (≈2000) + soft-distill (+100–200?) + AV stack (+100–200?
 + INT8 (+150?) ≈ **2350–2450** — 2500 needs one more compounding win
 (GM-move fine-tune or MAE scale-up), all within the 526M-record base we
 already hold.
+
+### 2.1.1 Memorization check on bcpool's 0.9 cp-lost (2026-10-31)
+bcpool's SF-match on 126 IN-training slice0 positions: 57.1%; on 133 OUT-of-
+training slice1 positions: **57.9%** — no memorization inflation. The 0.9
+cp-lost is genuine generalization: 1 epoch of human-move BC already yields
+near-SF play that generalizes. (And still −49 vs v2pool — SF-agreement
+saturates instantly; strength lives elsewhere. The central law holds.)
