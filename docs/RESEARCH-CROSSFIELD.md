@@ -346,3 +346,14 @@ training slice1 positions: **57.9%** — no memorization inflation. The 0.9
 cp-lost is genuine generalization: 1 epoch of human-move BC already yields
 near-SF play that generalizes. (And still −49 vs v2pool — SF-agreement
 saturates instantly; strength lives elsewhere. The central law holds.)
+
+### 1.1 Longitudinal symmetry tracking (2026-10-31)
+The chained marquee nets stay perfectly mirror-symmetric through training:
+e0 (150M slice0, 1ep) and e1 (slice1 chained) both measure mean|Δmirror| =
+0.0000 (n=400). The 0.135 asymmetry is a property of the OLD pool's
+multi-epoch recipe, not of our architecture or the 450M scale — and the
+--rank-mirror flag remains insurance for longer runs. The upcoming Gate-3
+DeepNoc-puzzle measurement will show whether symmetric nets ALSO match the
+old pool's puzzle strength (the AV asymmetry hypothesis: if symmetric nets
+score lower on sharp tactical puzzles, the asymmetry was buying tactics —
+that would make the mirror flag a play-style trade, not a free win).
