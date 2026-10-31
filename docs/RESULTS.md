@@ -1031,3 +1031,29 @@ Findings:
    consistent with per-sample parity and a data-scale gap (the marquee
    tests exactly this).
 Converted suite: /home/wyatt/data/chessbench/puzzles_deepnoc.jsonl.
+
+## 2026-10-30/31 — SF-Q EVR MEASUREMENT: SF-agreement anti-correlates with strength
+(trainer/evr_sfq.py; 334 positions sampled from slice0 [40M,145M]; SF at
+800k nodes; per position: SF before-eval (mover POV) + per-net after-eval
+(opponent POV); cp_lost = cp_before − cp_after_mover)
+
+| net | mean cp lost | median | game-Elo order (ladders) |
+|---|---|---|---|
+| bcpool (38M human-move BC) | **0.9** | 5.0 | weakest of trio (−49 vs v2pool) |
+| v2pool (38M old pool) | 10.8 | 9.0 | middle |
+| net_e1 (champ parent, 450M×3) | 15.9 | 13.5 | strongest FP32 |
+| bc40m (ChessBench-AV) | 196.9 | 159.0 | weakest overall |
+
+**COMPLETE ANTI-CORRELATION**: the more SF-like the moves, the weaker the
+net in game ladders — across all four. This is the third falsified strength
+proxy (after validation loss and puzzle accuracy): **SF-move-agreement is a
+style metric, not a strength metric.** Only paired games measure strength.
+
+Confounds, honestly: bcpool's positions ⊂ its training data (in-distribution
+reproduction deflates its cp-lost); net_e1 vs v2pool is the clean pair (both
+out-of-distribution on slice0: v2pool closer to SF yet ~94 Elo weaker).
+bc40m is the sanity anchor (worst everywhere ✓).
+
+Tool: trainer/evr_sfq.py (reusable; any net, any shard range, any node
+count). The before-evals are shared across nets; per-net after-evals
+dominate the cost.
