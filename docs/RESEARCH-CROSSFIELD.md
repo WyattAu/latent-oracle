@@ -257,3 +257,85 @@ training scale. The stack's promise needs (a) the AV head trained on
 base. The decisive stack test moves to after the marquee. The BC-pool
 matched-exposure result (bcpool −49 vs v2pool, champ −188 over bcpool)
 and the mirror/distill ablations proceed on schedule.
+
+## 11. DEEP RESEARCH (2026-10-31): the 2500 attack — creative directions,
+### organized by mechanism
+
+The measured physics: search nets gain ~1500 Elo from search because search
+is *lookahead computed at play time*. Searchless nets must bake lookahead
+into weights — and the binding constraint we measured is **target
+sharpness vs learnability** (single deep-SF moves: sharp but unlearnable,
+0.035; human moves: soft but learnable, 0.54). Every idea below attacks
+one side of that trade.
+
+### 11.1 Soften the sharp signal — SF-multipv distillation  ★top pick
+The AV bags fail because ONE move per position is too sharp. But SF at
+200k nodes × MultiPV=5 produces a *distribution* over moves (cp scores →
+softmax at τ=120cp). Trainer: CE = α·CE(soft) + (1−α)·CE(human move).
+This keeps SF's sharpness where the position demands it and restores
+learnability where it doesn't. Tool drafted: make_soft_labels.py.
+Cost: 200k nodes × 5 PV × 2M positions ≈ 400 CPU-hours (parallelizable).
+Expected: the unlearnability cliff (0.035 match) flattens toward the AV
+head's 16.75% and past it — this is the "AV data, softer" bridge.
+
+### 11.2 Masked-square pre-training — representation physics  ★top pick
+MAE/BERT for boards: mask 15–30% of squares, train the trunk to
+reconstruct (CE over piece classes). LABEL-FREE — runs on all 526M BC
+positions + any future database. Teaches piece-interaction physics as a
+representation prior before the policy/value heads exist. Vision analogy:
+MAE made ViTs data-efficient at 1/10 labels. Cost: 1 slice pass ≈ 6h GPU.
+This is the deepest single lever: it upgrades the representation EVERY
+downstream head inherits.
+
+### 11.3 ELO-conditioned generation (Stanford HumanChess)
+FiLM-condition the trunk on a rating scalar → one net plays any strength
+band; LoRA adapters per band on top of the marquee trunk. Monetizable
+(training-partner bots per rating) and it forces the net to model the
+*human move distribution's rating structure* — the Maia direction at
+searchless inference.
+
+### 11.4 Policy-head QAT (the DeepNoc delta)
+Our projection-QAT covers the linears; DeepNoc's OnlineQAT quantizes
+online including activations and the policy path. The INT8 bonus (+179–233)
+came from POST-training quantization — training THROUGH it should stack.
+Cost: extend --qat to fake-quant activations (STE) + include the policy
+head. Risk: training instability (STE is finicky) — measure at 1M steps.
+
+### 11.5 The certainty head (DeepNoc's, trained)
+DeepNoc's net predicts *when its policy is reliable*. Quant analog: our
+entropy gate (Loop C) is heuristic; a trained certainty head replaces the
+threshold. At serve: trust policy argmax when certainty is high; defer to
+a second pass / deeper mode when low. Pairs with Loop C's measured margin
+distribution (39.8% instability in the bottom quintile).
+
+### 11.6 Mirror-equivariant re-test after mirror training
+MirrorAvg HURT by ~35 Elo on the FP32 champ (h2h 220/400). Prediction:
+after mirror-augmented training, MirrorAvg should flip to helping (the two
+views become consistent). Cheap re-test (one ladder) with a big diagnostic
+value: it validates the equivariance frame end-to-end.
+
+### 11.7 World-model probing losses (interpretability → training)
+Lc0 probes: board state is linearly decodable. Add auxiliary linear probes
+(king safety, material, passed pawns) with tiny MSE losses on known-good
+annotations — forces the trunk to organize features the policy head can
+use. Cost: near-zero (small heads, no extra forwards).
+
+### 11.8 What NOT to do (measured)
+- Value-max with outcome head (−441, Loop G)
+- RP2 on single-pass-BC nets (target-match 18.4% vs 47.4%, Loop C)
+- Puzzle accuracy as a selection metric (saturates by 38M; biased across
+  data types)
+- More AV bags without softening (the unlearnability cliff)
+
+### 11.9 The 2500 path, sequenced
+1. Marquee completes (the BC-trunk base) — Nov 1
+2. E5: SF-multipv soft labels on 2M positions → fine-tune the marquee net
+   (the learnable-sharpness bridge) — the single highest-EV experiment
+3. E6: mirror-consistency fine-tune — the symmetry fix
+4. E2: AV head on the marquee trunk (37.9M AV records ready) — the stack
+5. INT8 + policy-QAT — the serving layer
+6. Ladder vs champ → if ≥2400, the DeepNoc-delta push (GM data, MAE scale)
+Target: bcpool450 (≈2000) + soft-distill (+100–200?) + AV stack (+100–200?)
++ INT8 (+150?) ≈ **2350–2450** — 2500 needs one more compounding win
+(GM-move fine-tune or MAE scale-up), all within the 526M-record base we
+already hold.
