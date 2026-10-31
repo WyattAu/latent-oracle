@@ -1,6 +1,7 @@
 #include "uci/uci.hpp"
 
 #include "engine_oracle/engine.hpp"
+#include "engine_oracle/search.hpp"
 #include "movegen/movegen.hpp"
 #include "nn/net.hpp"
 #include "nn/netq.hpp"
@@ -65,7 +66,10 @@ struct Session {
     std::optional<lo::nn::NetQ> netq;    // INT8 ("LOQW"); preferred when set
     int recycle = 1;                     // RecyclePasses (looped trunk)
     bool mirror_avg = false;
-    bool value_max = false;             // MirrorAvg: REVERTED to off. The first
+    bool value_max = false;
+    bool use_ab = false;
+    std::uint64_t ab_nodes = 400000;
+    std::int64_t ab_time_ms = 3000;             // MirrorAvg: REVERTED to off. The first
                                          // reading of the h2h had the fastchess sign
                                          // backwards -- the PGN recount shows the PLAIN
                                          // side won 55% (220 vs 180 of 400), i.e. MirrorAvg
@@ -146,6 +150,9 @@ void handle_line(Session& s, const std::string& line) {
         std::cout << "option name RecyclePasses type spin default 1 min 1 max 8\n";
         std::cout << "option name MirrorAvg type check default false\n";
         std::cout << "option name ValueMax type check default false\n";
+    std::cout << "option name SearchAB type check default false\n";
+    std::cout << "option name ABNodes type spin default 400000 min 1000 max 100000000\n";
+    std::cout << "option name ABTimeMs type spin default 3000 min 100 max 60000\n";
         std::cout << "option name LoopCDAlpha type string default 0.0\n";
         std::cout << "uciok\n" << std::flush;
     } else if (cmd == "isready") {
@@ -189,6 +196,13 @@ void handle_line(Session& s, const std::string& line) {
             } else if (name == "ValueMax") {
                 const std::string v = line.substr(vpos + 7);
                 s.value_max = (v == "true" || v == "1");
+            } else if (name == "SearchAB") {
+                const std::string v = line.substr(vpos + 7);
+                s.use_ab = (v == "true" || v == "1");
+            } else if (name == "ABNodes") {
+                try { s.ab_nodes = std::stoull(line.substr(vpos + 9)); } catch (...) {}
+            } else if (name == "ABTimeMs") {
+                try { s.ab_time_ms = std::stoll(line.substr(vpos + 9)); } catch (...) {}
             } else if (name == "RecyclePasses") {
                 try {
                     s.recycle = std::max(1, std::stoi(line.substr(vpos + 7)));
@@ -234,7 +248,10 @@ void handle_line(Session& s, const std::string& line) {
                 hist.to[i] = static_cast<std::uint8_t>(move_to(s.game_moves[i]));
             }
             hist.n = static_cast<std::uint8_t>(std::min<std::size_t>(3, s.game_moves.size()));
-            if (s.netq)
+            if (s.use_ab && s.netq && own_time >= 10000)
+                best = engine::bestmove_ab(s.root, s.history, *s.netq, own_time,
+                                           s.ab_nodes, s.ab_time_ms);
+            else if (s.netq)
                 best = engine::bestmove_net_q(s.root, s.history, *s.netq, own_time, hist,
                                               s.mirror_avg, s.value_max);
             else if (s.net)

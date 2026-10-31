@@ -79,6 +79,7 @@ add_library(lo_core STATIC
     src/nn/netq.cpp
     src/tb/tb.cpp
     src/engine_oracle/engine.cpp
+    src/engine_oracle/search.cpp
     src/uci/uci.cpp)
 target_link_libraries(lo_core PUBLIC fathom)
 
