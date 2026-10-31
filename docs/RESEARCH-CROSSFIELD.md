@@ -239,3 +239,21 @@ representation prior. The standard recipe that made ViTs data-efficient.
 - E3: MAE pre-training ablation (masked-square reconstruction, 50M
   positions, then the standard recipe).
 - E4: scale the AV head to 200+ AV shards (the 1.1TB bag subset).
+
+### 9.1 Game-level check (2026-10-31, CPU arena, 60 games / 28 pairs)
+
+pol (policy argmax) vs avhead (AV-head argmax), same bc40m weights, TC
+30+0.3: **pol +69 ± 47** (score 59.8% — not decisive, restarts trimmed the
+match). Combined with the puzzle result (AV 16.75% > pol 10.4% same-net):
+
+- The AV head finds more puzzle solutions; at game level the two are
+  statistically indistinguishable (±47 covers 0 and +140).
+- The AV head's advantage is *tactical sharpness*; game play rewards
+  *consistency* — the same law as the human-vs-SF target comparison.
+
+Stack status: the game-level evidence is NEUTRAL at the 38M-record
+training scale. The stack's promise needs (a) the AV head trained on
+~500M+ records (the 1.1TB bags), and/or (b) the marquee trunk as the
+base. The decisive stack test moves to after the marquee. The BC-pool
+matched-exposure result (bcpool −49 vs v2pool, champ −188 over bcpool)
+and the mirror/distill ablations proceed on schedule.
