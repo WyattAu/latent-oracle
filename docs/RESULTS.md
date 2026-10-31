@@ -53,8 +53,8 @@ checkpoints DESPITE the NaN; "it exported" is not a finiteness check.
 ## GRPO: compute-blocked, handoff state (2026-10-08)
 non-finite update skip, NaN-save refusal; see the entry above). The
 learning question either; 120 steps at lr 1e-5 inside a 0.03 KL budget moves
-| 0 | **DiffuSearch variants** (LID, CTAP, different horizons) | - | **dropped**: 23.3% policy accuracy vs SF-best (BC: 51.0%) and 0-12 in play; variants inherit the failure until that gap is explained |
-| 0b | **AMZ variants** (coarser reply sampling, marginalizing the reply) | - | **dropped pending a mechanism fix**: reply-conditioned targets are privileged information a memoryless policy cannot use at inference |
+| 0 | **DiffuSearch variants** (LID, CTAP, different horizons) |; | **dropped**: 23.3% policy accuracy vs SF-best (BC: 51.0%) and 0-12 in play; variants inherit the failure until that gap is explained |
+| 0b | **AMZ variants** (coarser reply sampling, marginalizing the reply) |; | **dropped pending a mechanism fix**: reply-conditioned targets are privileged information a memoryless policy cannot use at inference |
 | 1 | ~~Volatility weighting~~ | tested 2026-10-08: +0.4pp policy accuracy at preview scale (455 -> 459 / 1000); inside noise | kept behind `--volatility-weight` (default off); re-test at full corpus only if tactical robustness proves to be the binding constraint |
 | 2 | **MirrorAvg: confirm at game level** | measured twice now; paired +23.4cp (CI [+5.3,+44.6]) and +1.3pp policy accuracy on a v3 net; free at inference | needs a clean SPRT; deliberately sequenced AFTER verdict A so it does not confound the AV comparison |
 | 3 | **Policy-aware hard-example mining**; upweight positions where the *current* policy's greedy move loses >= 200cp vs SF | the direct version of volatility weighting on the model's own errors rather than the game's | requires one inference pass per labeled position; `mine_blindspots.py` already covers the value-head variant and has never been run on real moonshot output |

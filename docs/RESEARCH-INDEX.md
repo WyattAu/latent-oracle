@@ -9,7 +9,7 @@
 | 9 | Mixture of Masters (persona MoE) | arXiv 2602 (Feb 2026) | **DEFER**; style, not strength; needs per-GM data | P4 |
 | 10 | JEPA world model / test-time training | JEPA-TTT (Sep 2026) | **WATCH**; needs dynamics model we don't have | P4 |
 | 11 | Multi-token prediction heads | MTP post-training (Oct 2026) | **WATCH**; gains mostly in token-space LMs | P4 |
-| 12 | Imitation learning / DAgger | Gold-standard study | **REJECT**; confirmed unhelpful for lightweight agents | - |
-| 13 | Extra capacity to break ceiling | Gold-standard study | **REJECT**; capacity does not break data ceiling; matches our H1 | - |
+| 12 | Imitation learning / DAgger | Gold-standard study | **REJECT**; confirmed unhelpful for lightweight agents |; |
+| 13 | Extra capacity to break ceiling | Gold-standard study | **REJECT**; capacity does not break data ceiling; matches our H1 |; |
 6. **RL-GRPO stage**; IMPLEMENTED (grpo_train.py: Gumbel-top-K groups,
    (oracle-ceiling breaker); runs on BC-v1 weights as soon as the GPU

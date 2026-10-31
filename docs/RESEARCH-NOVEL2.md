@@ -18,4 +18,4 @@ Self-Play 2024 and Expert Iteration; both still search/solver-bound).
 ## N6. LID: Latent Iterative Deepening (spec, post-DiffuSearch)
 latent branch slots; pass 1 ranks branches, pass 2 prunes weak ones and
 expands survivors in latent space, pass k deepens; MCTS as a fixed
-| 5 | N6 spec | DiffuSearch a0-match ≥ 40% | - |
+| 5 | N6 spec | DiffuSearch a0-match ≥ 40% |; |
