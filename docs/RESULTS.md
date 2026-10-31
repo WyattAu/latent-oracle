@@ -455,7 +455,7 @@ would be marginally stronger.
 (2026-10-08)
 
 The first GRPO run at production size printed `pg nan kl nan` from the first
-logged update and saved NaN weights (the later SPRT vs the SF pool; 0W/368L : is simply what a NaN net scores; the promotion rule correctly refused it).
+logged update and saved NaN weights (the later SPRT vs the SF pool; 0W/368L: is simply what a NaN net scores; the promotion rule correctly refused it).
 Two independent bugs:
 
 1. KL(base||new) summed `blp.exp() * (blp - lp)` over the masked distribution:

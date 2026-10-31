@@ -59,7 +59,7 @@ decisiveness heuristics. ~6-9% of a Lichess shard reaches ≤5 pieces; for
 "Policy improvement by planning with Gumbel" (Danihelka et al., ICLR 2022;
 validated at scale by Gumbel AlphaZero/MuZero in MiniZero 2023): sampling
 actions with the Gumbel-top-k trick turns even K=2..16 rollouts into a
-*provably improved* policy (consolidated sigma-weighted visit distribution) : the guarantee plain temperature sampling lacks.
+*provably improved* policy (consolidated sigma-weighted visit distribution): the guarantee plain temperature sampling lacks.
 
 ### Application to our GRPO design (RESEARCH-RL §3)
 - Sample the K=16 group moves via **Gumbel-top-K from the policy prior**
