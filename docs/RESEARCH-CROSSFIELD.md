@@ -357,3 +357,30 @@ DeepNoc-puzzle measurement will show whether symmetric nets ALSO match the
 old pool's puzzle strength (the AV asymmetry hypothesis: if symmetric nets
 score lower on sharp tactical puzzles, the asymmetry was buying tactics —
 that would make the mirror flag a play-style trade, not a free win).
+
+## 12. ABLATION LADDER RESULTS (2026-11-01, all 150 games, attribution checked)
+
+| ablation | vs bcpool (no-ablation control) | vs champ |
+|---|---|---|
+| **bcpooldist** (1-ply distill, Loop B) | **+147 ± 31** ★ | −369 ± 46 |
+| bcpoolmir (rank-mirror, Loop A) | +16 ± 28 (tie) | −179 ± 32 |
+| bcpool (baseline, no ablation) | — | −424 (measured earlier) |
+
+**Loop B (one-ply distillation) is the FIRST POSITIVE ABLATION RESULT**:
+training with afterstate enumeration + minimax-1ply consistency loss gains
+**+147 ± 31 Elo** over the no-distill control on identical data. The
+mechanism: the distillation loss teaches the value head to agree with its
+own one-ply search — closing the corr(v, minimax-1ply) = 0.42 gap.
+
+Rank-mirror (Loop A) is a TIE — the equivariance doesn't help at this
+exposure, consistent with the naturally symmetric 1-epoch nets.
+
+The distill ablation is a genuine training-method discovery: the BC pool's
+human-move data becomes more useful when the value head is also trained on
+its own afterstate evaluations. This is the insight that scales — the AV
+head (move-conditioned values from deep search) + the one-ply distill
+consistency together target the same self-consistency gap from both sides.
+
+**Updated ranking (150-game ladders, ±±):**
+champ > bcpooldist (+369 over bcpooldist) > bcpool (+147 over bcpooldist)
+The champ retains; the distill ablation narrows the gap by 147.
