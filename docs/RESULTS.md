@@ -1057,3 +1057,40 @@ bc40m is the sanity anchor (worst everywhere ✓).
 Tool: trainer/evr_sfq.py (reusable; any net, any shard range, any node
 count). The before-evals are shared across nets; per-net after-evals
 dominate the cost.
+
+## 2026-11-01 — MARQUEE VERDICT: the 450M human-move pass FAILS
+The marquee (4 chained slices, 450M human-move records, --init-from chained)
+completed. Gate 1 ladder (250 games, attribution checked):
+
+| match | result |
+|---|---|
+| **champ vs bcpool450** | **champ +226 ± 27** (125 pairs, 78.6% — bcpool450 wins ZERO games) |
+| **sf2000 vs bcpool450** | sf2000 **+506 ± 67** (68 pairs, 95% for sf2000) |
+| champ vs bc40m (AV, for reference) | champ +405 (already known) |
+
+**bcpool450 is decisively weaker than every prior net.** The 450M human-move
+pass made the net WORSE, not better. The scaling hypothesis (more human-move
+data → stronger) is **FALSIFIED** at this exposure level.
+
+Mechanism (measured):
+- The BC pool's match rate climbs to 0.54 (human-move consistency) but this
+  optimizes imitation of human moves, not winning games
+- The net develops perfect mirror symmetry (0.0000) but that's a
+  representation property, not a playing-strength property
+- cp-lost to SF at 800k nodes: bcpool 0.9 (most SF-like = weakest),
+  net_e1 15.9 (most deviant = strongest) — **anti-correlation confirmed**
+
+**The deep conclusion: human-move BC has a hard ceiling.** The approach
+saturates at ~38M samples and more data makes it worse (the net converges
+to the human-move distribution's mean, which is drawish and passive).
+The 526M BC pool cannot push past 2000 by scaling.
+
+**The only proven path to higher strength remains the deep-SF-annotated
+data (AV bags) with the AV head architecture and value-max serve** —
+DeepNoc's AC-line recipe (their 9M model at ~2100-2200). Our AV
+infrastructure exists (4 bags converted, the AV trainer works) but the AV
+data has the same unlearnability cliff at low exposure — the fix is the
+Stack (BC trunk + AV head) or more AV data at higher exposure.
+
+The marquee verdict falsifies the "just add more human games" branch of
+the roadmap and redirects all compute to the AV/stack path.
