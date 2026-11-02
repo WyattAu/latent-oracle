@@ -384,3 +384,25 @@ consistency together target the same self-consistency gap from both sides.
 **Updated ranking (150-game ladders, ±±):**
 champ > bcpooldist (+369 over bcpooldist) > bcpool (+147 over bcpooldist)
 The champ retains; the distill ablation narrows the gap by 147.
+
+### 11.10 Puzzle-scaling datapoint (2026-10-31, marquee e0 net)
+DeepNoc 10k puzzle suite on the marquee e0 net (150M human-move samples,
+1 epoch): **33.3%** vs bcpool (38M samples, same pool): **34.7%** and
+v2pool (38M old lichess pool with real game results): **43.0%**.
+
+**More BC human-move data makes puzzle accuracy WORSE** — the 4× scale-up
+produced a 1.4-point DECLINE. The old lichess pool at the SAME exposure
+scores 10 points higher. The difference isn't volume: it's **the value
+head having real targets** (game outcomes in the old pool vs neutral
+⅓⅓⅓ in the BC pool).
+
+**The value head is a representation-shaping auxiliary loss**: its
+gradients flow through the shared trunk and improve the policy head's
+features. Without real value targets, the trunk gets no value-gradient
+signal and the policy suffers. This is a concrete, measurable mechanism —
+not speculation.
+
+Practical fix: train the BC pool net with REAL value targets from the AV
+bags' win_prob (the AV bags carry per-move win% from deep SF). The
+chessbench_av.py trainer already supports this. The compound marquee
+should use REAL wdl targets instead of neutral ⅓⅓⅓.
