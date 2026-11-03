@@ -1122,3 +1122,25 @@ trunk representation for the policy head too.
 **The path forward requires real value targets.** The AV bags' win_prob
 (deep-SF assessment) is the strongest available source. The AV head
 architecture + the marquee trunk = the Stack experiment (queued).
+
+## 2026-11-03 — THE STACK: AV head + value-max serve FALSIFIED at 37.9M scale
+The Stack experiment (RESEARCH-CROSSFIELD §10): BC trunk from the marquee
+(450M human moves) + AV head trained on 37.9M SF-annotated records + play
+by AV-head argmax expected-win (the Python AV UCI wrapper at TC 15+0.2).
+
+Result: the Python AV wrapper loses **-478 ± 73** to the champ policy
+(50 pairs, 100 games, the AV wrapper wins only 6% of games).
+
+Mechanism: the AV head at 37.9M records is not a reliable move-quality
+evaluator. Its puzzle accuracy (16.75% vs policy 10.4%) showed promise,
+but puzzle sharpness ≠ game strength (the recurring pattern). The AV head
+needs ~670M+ records (DeepNoc's BC-9M scale) to produce a reliable
+move-quality signal — at our scale it's still noise.
+
+Implication: the AV head direction requires the full 1.1TB AV bag dataset
+(2144 shards, 1.1TB storage) and the AV head architecture at scale —
+beyond our current compute. The path to 2500 is:
+1. The champ recipe (real game results + multi-epoch) — proven, ~1900
+2. Policy-head QAT + GM-move fine-tune — the DeepNoc delta, +100-200
+3. The AV head at scale — needs infrastructure beyond our budget
+The champion (net_q_v2) remains the strongest net at every measured scale.
