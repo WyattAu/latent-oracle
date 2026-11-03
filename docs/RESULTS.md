@@ -1094,3 +1094,31 @@ Stack (BC trunk + AV head) or more AV data at higher exposure.
 
 The marquee verdict falsifies the "just add more human games" branch of
 the roadmap and redirects all compute to the AV/stack path.
+
+## 2026-11-02 — COMPOUND VERDICT: the 450M+distill+mirror compound FAILS
+The compound (450M human-move records + --distill1ply 16 + --rank-mirror,
+4 chained slices, batch 256 fp16) completed. Ladder results:
+
+| match | result |
+|---|---|
+| **champ vs compound** | **champ +263 ± 29** (125 pairs, compound scores 18%) |
+| **sf2000 vs compound** | sf2000 **+382 ± 46** (80 pairs, compound scores 10%) |
+
+The compound is WORSE than bcpool450 without distill (champ +226 over
+bcpool450 vs champ +263 over compound) — the distill + mirror additions
+are NEUTRAL-TO-NEGATIVE at the 450M scale.
+
+**The BC pool ceiling is now triple-confirmed:**
+1. bcpool (38M BC): champ +424 → BC pool loses badly
+2. bcpool450 (450M BC, no distill): champ +226 → 4× data doesn't help
+3. compound (450M BC + distill + mirror): champ +263 → distill/mirror don't help either
+
+The root cause: the BC pool's neutral value targets (⅓⅓⅓) provide no
+value-gradient signal to the trunk, weakening the representation for the
+policy head. The old pool's REAL game results (wl targets from actual
+game outcomes) train the value head properly, which shapes the shared
+trunk representation for the policy head too.
+
+**The path forward requires real value targets.** The AV bags' win_prob
+(deep-SF assessment) is the strongest available source. The AV head
+architecture + the marquee trunk = the Stack experiment (queued).
