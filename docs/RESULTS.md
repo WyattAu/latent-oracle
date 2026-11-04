@@ -1144,3 +1144,36 @@ beyond our current compute. The path to 2500 is:
 2. Policy-head QAT + GM-move fine-tune — the DeepNoc delta, +100-200
 3. The AV head at scale — needs infrastructure beyond our budget
 The champion (net_q_v2) remains the strongest net at every measured scale.
+
+## 2026-11-04 — Soft SF-policy A/B: TIE; target-match is the 4th falsified proxy
+The sharp-vs-learnable experiment (RESEARCH-CROSSFIELD): identical 84,746
+BC records, identical exposure (20 epochs, batch 256, lr 3e-4, fp32);
+the ONLY variable is the policy target — SF multipv=5 softmax(cp/120)
+soft distribution (arm soft) vs the single hard SF move (arm hard).
+
+Training: arm soft matched its targets 7x better (match 0.24 at epoch 12,
+still climbing, vs the hard arm's 0.034 plateau — the unlearnability wall).
+Ladders (150 games each, attribution-checked):
+  soft vs hard:  soft -27.9 +- 28.5  (statistical TIE)
+  soft vs champ: champ +432.3 +- 53.3 (placement; both tiny-data nets far below)
+  (deepnoc puzzles for these nets: not measured — the ladder verdict is the metric)
+
+FINDING: target-match (learnability) does NOT convert to game strength.
+The 4th falsified proxy: validation loss, puzzle accuracy, SF-agreement,
+and now trainability — no single-position metric predicts strength.
+
+Mechanism: tau=120 spreads mass nearly uniformly (0.22/0.20/0.20/0.18/0.18);
+the soft arm learns "these 5 moves are similar" and plays near-randomly
+among them; the hard arm cannot predict WHICH move, so it plays noise.
+Equal noise, equal strength. The policy-target SHAPE is not the bottleneck
+at 84k records. Also note: the slice0 records carry NEUTRAL value targets
+(value loss pinned at ln3 in both arms) — a clean isolation: policy-target
+shape alone adds ~nothing.
+
+The remaining delta between the BC pool and champ is the VALUE TARGET:
+bc40m carries binary SF win_prob (compound38m value loss ~0.28), the old
+pool carried real game results. The decisive experiment is value-realism,
+not policy-softness. Compound38m (with binary value targets + distill +
+mirror) fires ~02:00; if it still loses to champ by ~+250, the value
+void is confirmed as the whole gap, and the path is: restore the old
+pool (lichess archive) or attach AV-bag win_prob targets to BC records.
