@@ -1206,3 +1206,26 @@ lands ~-424; the old pool (deleted, restorable from the lichess
 archive) carried real results and produced the champ. Next: restore
 the old pool or attach AV-bag win_prob value targets (ternary, with
 draws) to BC records, retrain bcpool+distill on it, ladder vs champ.
+
+## 2026-11-05 (02:40) — bcpooldist DIRECT vs champ: -325; old-pool restore launched
+Direct 150-game ladder (the earlier +330 was an estimate from ladder
+arithmetic): champ +325.2 +- 41.7 over bcpooldist. The measured ladder:
+
+  champ                          0
+  v2pool (38M old pool)        -139 (est; verify direct next)
+  bcpooldist (BC + distill)    -325 +- 42  (direct)
+  bcpool (BC)                  -424 (direct)
+  compound38m (BC+dist+mirr)   -459 +- 57  (direct)
+
+Consistent with distill +147 over bcpool. The dominant delta is the DATA
+SOURCE (~+285 Elo: real game results vs SF-annotated BC pool, equal scale
+and exposure). Restoring the old pool: the lichess 2026-07/08 archives
+(29+30 GB) SURVIVED the cleanup — ops/oldpool_restore.sh (dbb129f) re-shards
+(min-elo 2000, 40M/month), combines to bc_v2_combined (~130M real-result
+records), trains the bcpool_distill recipe (98,750 steps + Loop B distill),
+ladders vs champ AND vs bcpooldist (the cross-pool distill transfer test).
+Disk: bc_full shard (33.7 GB, falsified direction, no mask) deleted;
+bc_sub slice masks deleted; 47 GB free.
+NOTE: fastchess APPENDS to an existing -pgnout file — the Nov-1
+bcpooldist-vs-champ.pgn mixed 300 games; recount used the -1105 split
+(2026-11-05 GameStartTime only). Always split or delete before rerunning.
