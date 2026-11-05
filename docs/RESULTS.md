@@ -1177,3 +1177,32 @@ not policy-softness. Compound38m (with binary value targets + distill +
 mirror) fires ~02:00; if it still loses to champ by ~+250, the value
 void is confirmed as the whole gap, and the path is: restore the old
 pool (lichess archive) or attach AV-bag win_prob targets to BC records.
+
+## 2026-11-05 — compound38m: distill+mirror ANTAGONISTIC (−97); mirror falsified as an addition
+The 38M compound (distill 16 + rank-mirror together, binary value targets,
+98,750 steps batch 384 fp32) vs ladders, attribution-checked 150 games:
+  compound38m vs bcpool: bcpool +97.4 +- 29.5  (the compound LOSES to control)
+  compound38m vs champ:  champ +458.5 +- 56.9  (consistent with bcpool -424)
+
+The method matrix at 38M is now complete:
+  mirror alone:        +16   +- 28   tie
+  distill alone:      +147   +- 31   the ONLY positive method
+  distill + mirror:    -97   +- 29   ANTAGONISTIC interaction
+
+The rank-mirror erases the distill's gain and then some. Mechanism
+hypothesis: the mirror halves true-distribution exposure while the
+distill loss needs exposure to converge; or the distill's afterstate
+self-consistency is broken under the rank+color transform. Either way:
+the BC-pool recipe going forward is DISTILL ONLY, no mirror.
+
+Note on the 23:58 ladders: the original run's fastchess invocations
+completed instantly with no output (cause unresolved — consistent with
+a dev-tree flap); re-run 02:08-02:24 produced clean 150-game ladders.
+
+Program state: every training-method axis at 38M is now measured. The
+remaining untested delta vs champ is VALUE-TARGET REALISM (real game
+results vs binary SF win_prob): bc40m carries binary targets and still
+lands ~-424; the old pool (deleted, restorable from the lichess
+archive) carried real results and produced the champ. Next: restore
+the old pool or attach AV-bag win_prob value targets (ternary, with
+draws) to BC records, retrain bcpool+distill on it, ladder vs champ.
