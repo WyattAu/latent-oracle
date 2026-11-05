@@ -1229,3 +1229,38 @@ bc_sub slice masks deleted; 47 GB free.
 NOTE: fastchess APPENDS to an existing -pgnout file — the Nov-1
 bcpooldist-vs-champ.pgn mixed 300 games; recount used the -1105 split
 (2026-11-05 GameStartTime only). Always split or delete before rerunning.
+
+## 2026-11-05 (15:00) — THE ANCHOR CORRECTION: v2pool is -275, not -139; the champ's margin is SCALE x EXPOSURE
+The restored old pool (80M records from the surviving lichess 2026-07/08
+archives, min-elo 2000, min-ply 8, max-ply 120) trained with the
+bcpool_distill recipe (98,750 steps, batch 384, fp32, Loop B distill).
+Three direct 150-game ladders, attribution-checked:
+
+  oldpool_distill vs champ:      champ +301 +- 40  (15.0% points)
+  oldpool_distill vs bcpooldist: oldpool +220 +- 34 (78.0% points)
+  v2pool vs champ (DIRECT):      champ +276 +- 38  (17.0% points)
+  oldpool_distill vs v2pool:     TIE  -2.3 +- 28   (50.3% points)
+
+CORRECTIONS TO THE LEDGER:
+1. v2pool = -139 was an ESTIMATE and wrong; the direct value is -276.
+   The "data-source delta +285" derived from it collapses to ~+40-60
+   (bcpooldist 13.3% vs v2pool 17.0% points vs champ).
+2. The distill's +147 (BC pool) does NOT show on the old pool:
+   oldpool_distill = v2pool exactly (50.3%).
+3. Elo intransitivity note: champ-vs-bcpooldist 86.7% vs
+   oldpool-vs-bcpooldist 78% looked inconsistent in Elo because the
+   pair-model diverges on extremely lopsided scores; at game level all
+   four measurements are mutually consistent.
+
+THE REAL STRUCTURE (game-level, mutually consistent):
+  champ (150M x 3 epochs)     ~85% vs every 1-exposure net
+  v2pool = oldpool_distill    (17% / 15% vs champ) - distill adds ~0 here
+  bcpooldist                  13.3%
+  bcpool                      ~5%
+The champ's ~280-Elo margin is SCALE x EXPOSURE (450M samples vs 38M),
+not the data source, not the training method, not the target shape.
+
+NEXT (the replication, launched): bc_v2_combined (80M) x 3 epochs + distill
+= 625k steps at batch 384 (~55h GPU) = 53% of the champ's sample budget on
+the restored pool. If it lands champ+-50, the lever stack (more months +
+epochs + distill) is validated and the 2500 path is data acquisition.
