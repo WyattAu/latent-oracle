@@ -1264,3 +1264,22 @@ NEXT (the replication, launched): bc_v2_combined (80M) x 3 epochs + distill
 = 625k steps at batch 384 (~55h GPU) = 53% of the champ's sample budget on
 the restored pool. If it lands champ+-50, the lever stack (more months +
 epochs + distill) is validated and the 2500 path is data acquisition.
+
+## 2026-11-08 (03:30) — replication crashed on ENOSPC; restarted from 0; disk hardened
+The 80M x 3-epoch replication died at 84% (epoch 2 step ~560k): ENOSPC at
+22:39 Nov 7 — the box's disk churn (an unrelated session ballooning ~85GB
+then releasing it) filled /home mid-training. Two crash-restart cycles; the
+script-level guard skips only COMPLETED runs (net_e2_ema.bin present), so
+the restart began a fresh 3-epoch run — ~22h of compute lost. The run is
+now at ~49k steps; verdict moves to ~Nov 10 late evening.
+
+Disk hardening (76G free):
+- bc_sub 450M slices deleted (32G du — falsified direction; soft100k shard kept)
+- big_2026-07/08 part shards deleted (4.8G — bc_v2_combined supersedes)
+- all *.pt intermediates + stack_av checkpoints deleted (runs/ 9.8G -> 8.1G);
+  every ladder-referenced net kept (champ, bcpool, bcpooldist, v2pool,
+  oldpool_distill, compound38m, soft_ab finals, replication epochs)
+LESSON: on this box, any multi-day run needs ~30GB of disk headroom beyond
+its own writes, and scripts that cannot resume must be restart-safe by
+construction (skip-guard on the FINAL artifact) — which this one was; the
+gap was that the crash was external (ENOSPC), so no artifact existed.
