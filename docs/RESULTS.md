@@ -1316,3 +1316,28 @@ Caveat: the earlier "INT8 bonus +179-233 (old-net-specific)" was this
 same effect measured on the champ; it did not generalize to BC-era nets
 then — because the bonus needs a STRONG net to amplify. It replicates
 at +280 on the strongest FP32 net we have.
+
+## 2026-11-11 (05:00) — THE INT8-NORMALIZED LADDER: transitive at last; epochs matter, precision-poisoning confirmed
+All family nets converted to INT8 (bin2pt.py round-trip verified
+byte-identical) and re-laddered at matched precision, 150 games each:
+
+  champ_q            0      (reference)
+  repl_q          -108 +- 30   (80M x 3 epochs + distill)
+  oldpool_q       -211 +- 30   (80M window, 1 epoch + distill)
+  v2pool_q        -218 +- 30   (38M old pool, 1 epoch)
+  v2pool_q        -12  +- 28   vs oldpool_q (TIE — the two 1-epoch nets equal)
+
+PERFECT TRANSITIVITY: 108 + 110 = 218 ✓. The FP32 ladders' intransitivity
+was the precision confound. CORRECTED LEDGER FINDINGS:
+1. EPOCHS MATTER: repl_q is +105-110 over both 1-epoch nets — the FP32
+   "repl = v2pool tie" was poisoned. Two extra epochs = ~+105.
+2. The FP32-era "oldpool_distill = v2pool tie" holds at INT8 too (-12 tie).
+3. repl_q vs repl_fp32 = +280: the serving-precision bonus is net-specific
+   (champ's own was +179-233). Stronger nets amplify the bonus more.
+4. Every future claim of "gap to champ" MUST be INT8-normalized.
+
+Also: runs/bcpool_distill/net_e0_ema.bin vanished post-ladder (~05:00,
+likely an invisible-window event reaching the data dir) — all other
+load-bearing nets audited OK. Retrain queued (resume-capable), then the
+INT8-normalized distill + data-source deltas (bcpool_q vs v2pool_q, and
+bcpooldist_q vs repl_q) complete the corrected ladder.
