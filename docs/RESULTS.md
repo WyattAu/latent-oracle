@@ -1283,3 +1283,36 @@ LESSON: on this box, any multi-day run needs ~30GB of disk headroom beyond
 its own writes, and scripts that cannot resume must be restart-safe by
 construction (skip-guard on the FINAL artifact) — which this one was; the
 gap was that the crash was external (ENOSPC), so no artifact existed.
+
+## 2026-11-11 (04:40) — THE QUANTIZATION CONFOUND: ~200-280 of every "gap to champ" was serving speed
+The replication (80M x 3 epochs + distill) finished Nov 10 21:34. Its
+verdict ladders + the precision controls that followed:
+
+  champ (net_q_v2, INT8)  vs repl_fp32:      champ +297 +- 39  (repl 15.3%)
+  champ (INT8)            vs repl_q (INT8):  champ +108 +- 30  (repl_q 35.0% WINS 46% of games!)
+  repl_q (INT8)           vs repl_fp32:      repl_q +280 +- 38  (83.3% points)
+  repl_q (INT8)           vs champ_fp32:     repl_q +489 +- 61  (94.3%!!)
+
+CONCLUSION: serving precision is worth ~200-280 Elo at fixed TC. The champ
+is INT8 (net_q_v2); every historical challenger ladder ran FP32 .bin nets.
+The entire "gap to champ" ladder table (bcpool -424, v2pool -276,
+oldpool_distill -301, replication -297) mixed INT8 speed against FP32
+slowness. TRUE ladder requires INT8-normalized measurements.
+
+INT8-normalized so far: champ 0, repl_q -108 — the replication is the
+#2 net ever trained, within 108 of the champion, and its INT8 form beats
+the champ's own FP32 parent by 489. The replication training DID work.
+
+Multi-epoch note: repl_q = v2pool (1 epoch) is still TIE at game level
+in the FP32 ladders — the epoch effect remains unproven either way;
+every epoch/multi-epoch claim needs INT8-normalized re-measurement.
+
+METHOD LAW (new, #5): the serving format is part of the measurement.
+Ladders are only valid at matched precision. Every keeper net gets
+exported to INT8 (.pt retained for re-export); every future ladder is
+INT8-vs-INT8 (or FP32-vs-FP32).
+
+Caveat: the earlier "INT8 bonus +179-233 (old-net-specific)" was this
+same effect measured on the champ; it did not generalize to BC-era nets
+then — because the bonus needs a STRONG net to amplify. It replicates
+at +280 on the strongest FP32 net we have.
