@@ -1341,3 +1341,35 @@ likely an invisible-window event reaching the data dir) — all other
 load-bearing nets audited OK. Retrain queued (resume-capable), then the
 INT8-normalized distill + data-source deltas (bcpool_q vs v2pool_q, and
 bcpooldist_q vs repl_q) complete the corrected ladder.
+
+## 2026-11-12 (04:00) — THE DISTILL INVERSION: +147 at FP32, -131 at INT8 (matched precision)
+The completed INT8-normalized ladder (all nets exported via bin2pt.py +
+export_int8.py, 150 games each, attribution-checked):
+
+  champ_q            0      reference (net_q_v2)
+  repl_q          -108 +- 30   80M x 3 epochs + distill
+  oldpool_q       -211 +- 30   80M window, 1 epoch + distill
+  v2pool_q        -218 +- 30   38M old pool, 1 epoch
+  bcpool_q        -274 (via v2pool_q +56: measured directly -56 +- 29)
+  bcpooldist_q    -395 (via bcpool_q -131 +- 30 DIRECT: bcpooldist_q 32%)
+
+FINDINGS:
+1. Data-source delta (real results vs BC annotations, 38M x 1ep):
+   v2pool_q - bcpool_q = +56 +- 29. Real, modest, matches the Nov 5
+   estimate of +50.
+2. THE DISTILL INVERSION: the Loop B distill is +147 +- 31 at FP32
+   serving (Nov 3) and -131 +- 30 at INT8 serving (today) on the SAME
+   pool/exposure. The effect SIGN depends on serving precision. The
+   distill net's weights (V2 head max|w| 6.8 vs 3.5) quantize badly;
+   INT8 per-tensor rounding erases the fine distinctions the distill
+   training relies on. Its INT8 policy argmax lands on a degenerate
+   Grob preference (g2g4 at startpos vs d2d4 for bcpool).
+3. Recipe selection must happen AT SERVING PRECISION. FP32 ladders
+   select the wrong recipe for INT8-served engines and vice versa.
+4. The replication (80M x 3ep + distill) remains the best INT8-served
+   non-champ net (-108): distill's INT8 harm is pool-dependent (it does
+   not hurt the old pool at scale — repl_q beats every 1-epoch net).
+OPEN QUESTION: is repl_q's distill actually helping at INT8? The clean
+test is repl-no-distill (80M x 3ep without --distill1ply) exported INT8
+vs repl_q — queued as the next GPU run (55h). If no-distill ties or
+beats, drop the distill from the INT8 recipe.
