@@ -1373,3 +1373,36 @@ OPEN QUESTION: is repl_q's distill actually helping at INT8? The clean
 test is repl-no-distill (80M x 3ep without --distill1ply) exported INT8
 vs repl_q — queued as the next GPU run (55h). If no-distill ties or
 beats, drop the distill from the INT8 recipe.
+
+## 2026-11-14 (09:40) — REPLICATION ARC CLOSED: the corrected ladder complete; the distill is optional
+The no-distill control finished (80M x 3 epochs, no distill, INT8-served):
+  repl_nodist_q vs repl_q:    TIE  -13.9 +- 28  (52.0% — direct, decisive)
+  champ_q vs repl_nodist_q:   champ +170 +- 32  (repl_nodist_q 27.3%)
+
+THE COMPLETE INT8-NORMALIZED LADDER (the corrected ledger, all direct):
+  champ_q          0      20M x 2ep @ batch 512 (Sep-26 lineage)
+  repl_q        -108 +- 30   80M x 3ep + distill
+  repl_nodist_q -170 +- 32   80M x 3ep, no distill
+  oldpool_q     -211 +- 30   80M window, 1ep + distill
+  v2pool_q      -218 +- 30   38M old pool, 1ep
+  bcpool_q      -274 (derived; direct -56 vs v2pool_q)
+  bcpooldist_q  -395 (derived; direct -131 vs bcpool_q)
+
+FINAL DISTILL VERDICT: OPTIONAL at INT8 on the real pool (direct tie
+-14 +- 28; indirect via champ +60 — suggestive, not significant; keep it,
+it costs nothing and the direct measurement shows no harm). The BC-pool
+inversion (+147 FP32 / -131 INT8) stands as the precision-sensitivity
+warning but does not generalize.
+
+THE QUANTIFIED LEVER STACK for the 2500 push:
+1. DATA SCALE: the champ's remaining ~108-170 edge tracks its 150M pool
+   vs our 80M (450M vs 240M samples). Each lichess month = ~40M records.
+   Scale to 150M-240M -> expect parity or better.
+2. 3 EPOCHS: proven +105-170 over 1-epoch at matched precision.
+3. INT8 SERVING: mandatory (law #5); .pt retained for every keeper.
+4. Distill: optional; keep (neutral at scale, +147-class on BC-scale pools).
+5. Then the DeepNoc deltas: policy-head QAT + GM-move fine-tune.
+INFRASTRUCTURE (validated this week): step-ckpt + resume trainer, bin2pt
+converter, flap-tolerant engine rebuilds, disk guards, INT8-first ladders.
+NEXT: download 2-4 more lichess months -> 150M-240M pool -> train the
+full-scale recipe -> expect champ parity -> public measurement (CCRL).
