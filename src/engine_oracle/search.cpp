@@ -64,7 +64,9 @@ bool is_draw(const PositionState& p, const SearchCtx& ctx) {
     if (p.halfmove >= 100) return true;
     int reps = 0;
     for (auto k : ctx.rep_stack) reps += (k == p.zobrist);
-    return reps >= 1;
+    // 3-fold: the stack includes the current position itself, so the
+    // current occurrence counts — a first visit is NOT a repetition.
+    return reps >= 3;
 }
 
 Square king_sq(const PositionState& p, Color c) {
@@ -179,7 +181,7 @@ int ab(PositionState p, int depth, int alpha, int beta, int ply, SearchCtx& ctx)
     for (std::uint32_t i = 0; i < ml.count; ++i) {
         Move m = ml.moves[i];
         PositionState child = apply(p, m);
-        if (attacked(child, king_sq(child, them), us))
+        if (attacked(child, king_sq(child, us), them))
             continue;
         ctx.rep_stack.push_back(child.zobrist);
         int score;

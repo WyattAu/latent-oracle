@@ -210,9 +210,9 @@ void handle_line(Session& s, const std::string& line) {
                 const std::string v = line.substr(vpos + 7);
                 s.use_ab = (v == "true" || v == "1");
             } else if (name == "ABNodes") {
-                try { s.ab_nodes = std::stoull(line.substr(vpos + 9)); } catch (...) {}
+                try { s.ab_nodes = std::stoull(line.substr(vpos + 7)); } catch (...) {}
             } else if (name == "ABTimeMs") {
-                try { s.ab_time_ms = std::stoll(line.substr(vpos + 9)); } catch (...) {}
+                try { s.ab_time_ms = std::stoll(line.substr(vpos + 7)); } catch (...) {}
             } else if (name == "RecyclePasses") {
                 try {
                     s.recycle = std::max(1, std::stoi(line.substr(vpos + 7)));
