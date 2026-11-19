@@ -1438,3 +1438,30 @@ CORRECTED STORY:
 3. Distill on the big pool: slightly negative (170 vs 150 indirect;
    direct tie -14) — consistent with the BC-pool inversion. Drop it.
 4. CHAMPION DECIDER running: repl_nodist_q vs scale160_q direct.
+
+## 2026-11-19 (13:15) — CHAMPION DECIDER: repl_nodist_q stands; sample scaling SATURATED
+  scale160_q vs repl_nodist_q: TIE  +16.2 +- 28  (scale160_q 47.7% points)
+
+The doubled-budget run (480M samples, 160M 4-month pool) does NOT beat the
+240M-sample repl_nodist (80M x 3ep, no distill). Sample scaling saturated
+between 240M and 480M samples. THE CHAMPION: repl_nodist_q — the simplest
+recipe (80M real-result pool, 3 epochs, no distill, INT8-served), +170
+over the old champ, half the compute of scale160.
+
+THE CORRECTED FINAL LADDER (INT8-normalized, direct where measured):
+  repl_nodist_q  +170 +- 32   NEW CHAMPION (80M x 3ep, no distill)
+  scale160_q     +150 +- 31   (tie with repl_nodist: +16 +- 28 direct)
+  repl_q         +108 (65% vs champ)
+  champ (old)      0
+  oldpool_q       ~ +5
+  v2pool_q        ~ -2
+  bcpool_q        ~ -58
+  bcpooldist_q    ~ -189
+
+WHERE THE 2500 PATH GOES NOW (levers by measured yield):
+1. DONE: real-result pool (+56), 3 epochs (+105-170), INT8 serving (+280).
+2. SATURATED: sample count beyond 240M (+0). Data acquisition is NOT the
+   next lever.
+3. NEXT LEVERS (the DeepNoc deltas, untried): policy-head QAT at training
+   (INT8-native weights), GM-move fine-tune on repl_nodist. Then the
+   public measurement (CCRL) for ground truth.
