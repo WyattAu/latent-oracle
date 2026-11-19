@@ -96,7 +96,10 @@ void apply_moves(Session& s, std::istringstream& iss) {
                 break;
             }
         }
-        if (!found) return;
+        if (!found) {
+            std::fprintf(stderr, "[apply] UNMATCHED move '%s' — stopping\n", mstr.c_str());
+            return;
+        }
     }
 }
 
@@ -117,6 +120,13 @@ void set_position(Session& s, const std::string& line) {
     // the whole command — the engine then answered a stale root mid-game.
     if (kind == "startpos") {
         fen = std::string(STARTPOS_FEN);
+        std::string t;
+        if ((iss >> t) && t != "moves") {
+            std::fprintf(stderr, "[position] unexpected token after startpos: '%s'\n",
+                         t.c_str());
+            return;
+        }
+        // the "moves" keyword is consumed; apply_moves reads from here
     } else if (kind == "fen") {
         std::string t;
         while (iss >> t) {

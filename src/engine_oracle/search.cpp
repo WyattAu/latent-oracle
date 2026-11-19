@@ -74,7 +74,7 @@ Square king_sq(const PositionState& p, Color c) {
 template <typename NetT>
 int qsearch(PositionState p, int alpha, int beta, int ply, SearchCtx& ctx) {
     const Color us = static_cast<Color>(p.side_to_move);
-    const Color them = static_cast<Color>(~p.side_to_move);
+    const Color them = static_cast<Color>(p.side_to_move ^ 1); // FIX: ~uint8_t promotes to -1/-2, not the XOR
     ++ctx.nodes;
     if (time_up(ctx)) return alpha;
     const auto out = ctx.net->evaluate(p);
@@ -120,8 +120,8 @@ template <typename NetT>
 int ab(PositionState p, int depth, int alpha, int beta, int ply, SearchCtx& ctx) {
     const bool root = (ply == 0);
     const Color us = static_cast<Color>(p.side_to_move);
-    const Color them = static_cast<Color>(~p.side_to_move);
-    const bool in_check = attacked(p, king_sq(p, static_cast<Color>(p.side_to_move)), static_cast<Color>(~p.side_to_move));
+    const Color them = static_cast<Color>(p.side_to_move ^ 1); // FIX: ~uint8_t promotes to -1/-2, not the XOR
+    const bool in_check = attacked(p, king_sq(p, static_cast<Color>(p.side_to_move)), static_cast<Color>(p.side_to_move ^ 1));
     if (ply > 0 && (is_draw(p, ctx) || ply >= MATE_IN_MAX))
         return is_draw(p, ctx) ? 0 : static_cast<int>(value_cp(ctx.net->evaluate(p)));
 
