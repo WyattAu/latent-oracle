@@ -1406,3 +1406,35 @@ INFRASTRUCTURE (validated this week): step-ckpt + resume trainer, bin2pt
 converter, flap-tolerant engine rebuilds, disk guards, INT8-first ladders.
 NEXT: download 2-4 more lichess months -> 150M-240M pool -> train the
 full-scale recipe -> expect champ parity -> public measurement (CCRL).
+
+## 2026-11-14 vs 11-19 — SIGN AUDIT + THE CHAMPION IS DETHRONED
+The scale160 verdict ladders (Nov 19) exposed sign errors in the ledger's
+vs-champ entries: the sprt_pentanomial Elo is ENGINE1's (the White-of-
+game-1 attribution line names it), and fastchess's Games summary is the
+FIRST-command engine's — reading "Elo -150" as champ-positive instead of
+champ-negative flipped three entries. Re-verified against the unambiguous
+Games summaries (both perspectives recorded):
+
+  scale160_q vs champ_q: scale160_q 70.33%  -> scale160_q +150 +- 31
+  repl_nodist_q vs champ_q: repl_nodist_q 72.67% -> repl_nodist_q +170 +- 32
+  repl_q vs champ_q (Nov 11): repl_q 65.00% -> repl_q +108 (ledger had it flipped)
+
+THE TRUE INT8-NORMALIZED LADDER (vs champ = net_q_v2):
+  repl_nodist_q  +170   80M x 3ep, NO distill  <- THE NEW CHAMPION
+  scale160_q     +150   160M x 4-months x 3ep + distill
+  repl_q         +108   80M x 3ep + distill
+  champ (old)      0    20M x 2ep @ batch 512 (Sep-26 lineage)
+  oldpool_q      ~ +5   1 epoch + distill   (TIE with old champ)
+  v2pool_q       ~ -2   1 epoch             (TIE with old champ)
+  bcpool_q       ~ -58
+  bcpooldist_q   ~ -189
+
+CORRECTED STORY:
+1. The old champ was NEVER strongest at matched precision — the Sep-26
+   recipe loses ~+100-170 to everything trained since at 3 epochs.
+2. THE SIMPLEST RECIPE WINS: 80M x 3ep, no distill (+170) beats the
+   doubled-data scale-up (+150) — sample scaling SATURATED between
+   240M and 480M samples (2026-05/06 data adds no strength).
+3. Distill on the big pool: slightly negative (170 vs 150 indirect;
+   direct tie -14) — consistent with the BC-pool inversion. Drop it.
+4. CHAMPION DECIDER running: repl_nodist_q vs scale160_q direct.
