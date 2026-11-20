@@ -56,8 +56,9 @@ struct SearchCtx {
 
 bool time_up(const SearchCtx& ctx) {
     if (ctx.nodes >= ctx.node_cap) return true;
-    return (ctx.nodes & 2047) == 0 &&
-           std::chrono::steady_clock::now() > ctx.deadline;
+    // deadline check EVERY node: nodes here each cost a net evaluation,
+    // so a 2048-node batching overshoots the move deadline by minutes
+    return std::chrono::steady_clock::now() > ctx.deadline;
 }
 
 bool is_draw(const PositionState& p, const SearchCtx& ctx) {
