@@ -5,6 +5,7 @@
 //   latent-oracle uci                same, explicit
 //   latent-oracle perft <depth> [--fen "..."] [--divide]
 //   latent-oracle perftsuite [--quick]
+//   latent-oracle nnbench <blob> [N] [--value-only]  time N net evals
 
 #include "movegen/attack.hpp"
 #include "movegen/movegen.hpp"
@@ -14,6 +15,7 @@
 #include "tb/tb.hpp"
 #include "uci/uci.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -223,6 +225,42 @@ int cmd_nnqpar(int argc, char** argv) {
     return 0;
 }
 
+int cmd_nnbench(int argc, char** argv) {
+    // nnbench <blob> [N] [--value-only] — time N evaluations of the given
+    // int8 blob on one fixed position; reports ms/eval for the value-only
+    // and full-policy paths.
+    std::string weights, fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    long n = 100;
+    bool value_only = false;
+    for (int i = 2; i < argc; ++i) {
+        const std::string a = argv[i];
+        if (a == "--value-only") value_only = true;
+        else if (a == "--fen") { if (i + 1 < argc) fen = argv[++i]; }
+        else weights = a;
+    }
+    if (argc >= 3 && std::string(argv[2]).rfind("-", 0) != 0) {
+        weights = argv[2];
+        if (argc >= 4) n = std::stol(argv[3]);
+    }
+    auto net = lo::nn::NetQ::load(weights);
+    if (!net) { std::cerr << "nnbench: cannot load " << weights << "\n"; return 2; }
+    const auto p = lo::parse_fen(fen);
+    if (!p) { std::cerr << "nnbench: bad fen\n"; return 2; }
+
+    // warm the thread pool + caches
+    for (int i = 0; i < 3; ++i) { if (value_only) net->evaluate_value(*p); else net->evaluate(*p); }
+    const auto t0 = std::chrono::steady_clock::now();
+    float w0 = 0.f;
+    for (long i = 0; i < n; ++i) {
+        if (value_only) w0 += net->evaluate_value(*p).wdl[0];
+        else w0 += net->evaluate(*p).wdl[0];
+    }
+    const auto t1 = std::chrono::steady_clock::now();
+    const double ms = std::chrono::duration<double, std::milli>(t1 - t0).count() / static_cast<double>(n);
+    std::cout << "nnbench: " << n << " evals in " << ms << " ms/eval (" << (value_only ? "value-only" : "full") << "), w0=" << w0 << "\n";
+    return 0;
+}
+
 int cmd_perftsuite(bool quick) {
     bool all_ok = true;
     for (const auto& tc : suite(quick)) {
@@ -253,6 +291,7 @@ int main(int argc, char** argv) {
         const std::string cmd = argv[1];
         if (cmd == "perft") return cmd_perft(argc, argv);
         if (cmd == "perftsuite") return cmd_perftsuite(argc >= 3 && std::string(argv[2]) == "--quick");
+        if (cmd == "nnbench") return cmd_nnbench(argc, argv);
         if (cmd == "nnpar") return cmd_nnpar(argc, argv);
         if (cmd == "nnqpar") return cmd_nnqpar(argc, argv);
         if (cmd == "tbtest") return cmd_tbtest(argc, argv);

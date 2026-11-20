@@ -42,6 +42,13 @@ class NetQ {
     NetQOutput evaluate(const PositionState& pos) const;
     NetQOutput evaluate(const PositionState& pos, const NetHistory& hist) const;
 
+    // Value-only fast path for search leaves: the trunk + value head only.
+    // Skips the policy head (Wfrom/Wto/promo + the 4096-entry score matrix),
+    // which the AB search never reads, and parallelizes the trunk over the
+    // per-square/per-head loops with a persistent thread pool.
+    struct ValueOut { float wdl[3]; };
+    ValueOut evaluate_value(const PositionState& pos) const;
+
   private:
     struct QL {
         std::size_t w_off = 0;   // iw_: s8 weights, row-major [out][in]

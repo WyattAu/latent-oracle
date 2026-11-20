@@ -1,17 +1,90 @@
 #include "nn/netq.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <functional>
+#include <mutex>
+#include <thread>
 
 #if defined(__x86_64__)
 #include <immintrin.h>
 #endif
 
 namespace lo::nn {
+namespace {
+
+// Persistent parallel-for pool: the eval runs ~32 fan-out regions per call,
+// so threads must stay hot (spawn overhead would eat the threading win).
+struct ParPool {
+    std::vector<std::thread> workers;
+    std::function<void(unsigned)> job;
+    std::atomic<unsigned> gen{0};
+    std::atomic<unsigned> done{0};
+    std::condition_variable cv_go, cv_done;
+    std::mutex m;
+    unsigned n = 1;
+    bool stop = false;
+
+    explicit ParPool(unsigned nt) : n(nt) {
+        for (unsigned t = 1; t < n; ++t)
+            workers.emplace_back([this, t] { worker(t); });
+    }
+    ~ParPool() {
+        { std::lock_guard<std::mutex> lk(m); stop = true; }
+        cv_go.notify_all();
+        for (auto& w : workers) w.join();
+    }
+    void worker(unsigned t) {
+        unsigned seen = 0;
+        while (true) {
+            std::unique_lock<std::mutex> lk(m);
+            cv_go.wait(lk, [&] { return stop || gen != seen; });
+            seen = gen.load();
+            if (stop) return;
+            lk.unlock();
+            job(t);
+            std::lock_guard<std::mutex> lk2(m);
+            if (++done == n - 1) cv_done.notify_one();
+        }
+    }
+    template <typename F>
+    void run(F&& fn) {  // fn(unsigned t) runs slice t; t=0 on the caller
+        {
+            std::lock_guard<std::mutex> lk(m);
+            done = 0;
+            job = std::function<void(unsigned)>(fn);
+            gen.store(gen.load() + 1);
+        }
+        cv_go.notify_all();
+        fn(0);
+        std::unique_lock<std::mutex> lk(m);
+        cv_done.wait(lk, [&] { return done == n - 1; });
+    }
+};
+
+ParPool& pool() {
+    static ParPool p([] {
+        unsigned hw = std::thread::hardware_concurrency();
+        return hw ? std::min(hw, 8u) : 1u;
+    }() );
+    return p;
+}
+
+template <typename F>
+void par_squares(F&& fn) {  // fn(int sq) for sq in [0, 64)
+    pool().run([&](unsigned t) {
+        for (int sq = static_cast<int>(t); sq < 64; sq += pool().n) fn(sq);
+    });
+}
+
+}  // namespace
+
 
 namespace {
 
@@ -336,6 +409,98 @@ NetQOutput NetQ::evaluate(const PositionState& pos, const NetHistory& hist) cons
         }
     linear_f32(q_pooled, f_.data() + promo_, f_.data() + promo_ + 4 * d, out.promo_logit, d, 4);
 
+    qlinear(q_hv, ql_[v1], q_vhid);
+    for (int i = 0; i < 128; ++i) q_vhid[i] = gelu(q_vhid[i]);
+    if (v3_) {
+        const int pc = static_cast<int>(popcount(occupancy_all(pos))) - 2;
+        const int mb = std::min(7, std::max(0, pc * 8 / 30));
+        const float* W = f_.data() + v3_v2W_ + static_cast<std::size_t>(mb) * 3 * 128;
+        const float* B = f_.data() + v3_v2B_ + static_cast<std::size_t>(mb) * 3;
+        for (int j = 0; j < 3; ++j) {
+            float acc = B[j];
+            for (int i = 0; i < 128; ++i) acc += q_vhid[i] * W[j * 128 + i];
+            out.wdl[j] = acc;
+        }
+    } else {
+        linear_f32(q_vhid, f_.data() + v2_, f_.data() + v2_ + 3 * 128, out.wdl, 128, 3);
+    }
+    softmax_inplace(out.wdl, 3);
+    return out;
+}
+
+NetQ::ValueOut NetQ::evaluate_value(const PositionState& pos) const {
+    const int d = static_cast<int>(cfg_.d);
+    const int heads = static_cast<int>(cfg_.heads);
+    const int hd = d / heads;
+    const int dff = static_cast<int>(cfg_.dff);
+    const float scale = 1.0f / std::sqrt(static_cast<float>(hd));
+
+    for (int sq = 0; sq < 64; ++sq) {
+        std::uint8_t code = 0;
+        for (int t = 0; t < PIECE_NB; ++t) {
+            if (pos.pieces[WHITE][t] & SQUARE_BB[sq]) code = static_cast<std::uint8_t>(t + 1);
+            if (pos.pieces[BLACK][t] & SQUARE_BB[sq]) code = static_cast<std::uint8_t>(t + 9);
+        }
+        for (int i = 0; i < d; ++i)
+            q_x[sq * d + i] = f_[emb_off_ + code * d + i] +
+                              f_[sq_off_ + static_cast<std::size_t>(sq) * d + i] +
+                              f_[side_off_ + static_cast<std::size_t>(pos.side_to_move) * d + i];
+    }
+
+    for (std::uint32_t l = 0; l < cfg_.layers; ++l) {
+        const std::size_t ln1 = ln1_off_[l], ln2 = ln2_off_[l], wo = wo_off_[l];
+        const std::size_t wq = ql_from_ + l * 5;
+
+        par_squares([&](int s) {
+            layernorm(&q_x[s * d], f_.data() + ln1, f_.data() + ln1 + d, q_vec, d);
+            qlinear(q_vec, ql_[wq], &q_q[s * d]);
+            qlinear(q_vec, ql_[wq + 1], &q_k[s * d]);
+            qlinear(q_vec, ql_[wq + 2], &q_v[s * d]);
+        });
+
+        par_squares([&](int s) {
+            for (int head = 0; head < heads; ++head) {
+                const float* qp = &q_q[s * d + head * hd];
+                for (int t = 0; t < 64; ++t) {
+                    const float* kp = &q_k[t * d + head * hd];
+                    float dot = 0.0f;
+                    for (int i = 0; i < hd; ++i) dot += qp[i] * kp[i];
+                    q_att[s * 64 + t] = dot * scale;
+                }
+                softmax_inplace(&q_att[s * 64], 64);
+                for (int i = 0; i < hd; ++i) {
+                    float acc = 0.0f;
+                    for (int t = 0; t < 64; ++t)
+                        acc += q_att[s * 64 + t] * q_v[t * d + head * hd + i];
+                    q_h[s * d + head * hd + i] = acc;
+                }
+            }
+        });
+        par_squares([&](int s) {
+            linear_f32(&q_h[s * d], f_.data() + wo, f_.data() + wo + d * d, q_vec, d, d);
+            for (int i = 0; i < d; ++i) q_x[s * d + i] += q_vec[i];
+        });
+        par_squares([&](int s) {
+            layernorm(&q_x[s * d], f_.data() + ln2, f_.data() + ln2 + d, q_vec, d);
+            qlinear(q_vec, ql_[wq + 3], q_wide);
+            for (int i = 0; i < dff; ++i) q_wide[i] = gelu(q_wide[i]);
+            qlinear(q_wide, ql_[wq + 4], q_vec);
+            for (int i = 0; i < d; ++i) q_x[s * d + i] += q_vec[i];
+        });
+    }
+
+    // value head only — no policy head in the search path
+    ValueOut out{};
+    for (int sq = 0; sq < 64; ++sq)
+        layernorm(&q_x[sq * d], f_.data() + lnP_, f_.data() + lnP_ + d, &q_h[sq * d], d);
+    for (int i = 0; i < d; ++i) {
+        float s = 0.0f;
+        for (int sq = 0; sq < 64; ++sq) s += q_h[sq * d + i];
+        q_pooled[i] = s / 64.0f;
+    }
+    layernorm(q_pooled, f_.data() + lnV_, f_.data() + lnV_ + d, q_hv, d);
+
+    const std::size_t v1 = (ql_from_ + cfg_.layers * 5) + 2;
     qlinear(q_hv, ql_[v1], q_vhid);
     for (int i = 0; i < 128; ++i) q_vhid[i] = gelu(q_vhid[i]);
     if (v3_) {

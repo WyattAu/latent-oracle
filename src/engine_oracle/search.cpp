@@ -80,7 +80,7 @@ int qsearch(PositionState p, int alpha, int beta, int ply, SearchCtx& ctx) {
     const Color them = static_cast<Color>(p.side_to_move ^ 1); // FIX: ~uint8_t promotes to -1/-2, not the XOR
     ++ctx.nodes;
     if (time_up(ctx)) return alpha;
-    const auto out = ctx.net->evaluate(p);
+    const auto out = ctx.net->evaluate_value(p); // value-only fast path
     int stand = static_cast<int>(value_cp(out));
     if (ply >= MATE_IN_MAX) return stand;
     if (stand >= beta) return stand;
@@ -130,7 +130,7 @@ int ab(PositionState p, int depth, int alpha, int beta, int ply, SearchCtx& ctx)
 
     ++ctx.nodes;
     if (ply > 0 && time_up(ctx))
-        return static_cast<int>(value_cp(ctx.net->evaluate(p)));
+        return static_cast<int>(value_cp(ctx.net->evaluate_value(p)));
 
     TTEntry* tte = nullptr;
     if (auto it = g_tt.find(p.zobrist); it != g_tt.end()) {
@@ -243,7 +243,7 @@ Move bestmove_ab(const PositionState& p, const std::vector<std::uint64_t>& key_h
     ctx.net = &net;
     ctx.node_cap = ab_nodes;
     ctx.deadline = std::chrono::steady_clock::now() +
-                   std::chrono::milliseconds(std::min<std::int64_t>(ab_time_ms, 3000));
+                   std::chrono::milliseconds(std::min<std::int64_t>(ab_time_ms, 60000));
     ctx.rep_stack.assign(key_history.begin(), key_history.end());
 
     MoveList ml;
