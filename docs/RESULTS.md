@@ -1465,3 +1465,43 @@ WHERE THE 2500 PATH GOES NOW (levers by measured yield):
 3. NEXT LEVERS (the DeepNoc deltas, untried): policy-head QAT at training
    (INT8-native weights), GM-move fine-tune on repl_nodist. Then the
    public measurement (CCRL) for ground truth.
+
+## 2026-11-19/20 — THE SEARCH PATH: four bugs fixed; the blocker is now eval SPEED (~50-100ms)
+Phase 0 of the search roadmap executed. The AB searcher had FOUR stacked
+bugs — fixing them one at a time changed the failure mode each time:
+
+1. uci: 'position startpos moves ...' never applied the moves list (the
+   startpos branch didn't consume the 'moves' keyword; apply_moves then
+   failed on the literal token and the engine answered the startpos root).
+   The fen path consumed it correctly — why fen-based ladder games were
+   always legal. THIS also misdiagnosed the AB known-bug TODO: ab() was
+   searching the startpos, not misreading a position (ab6e723).
+2. search: them = Color(~uint8_t) — bitwise-NOT promotes to -1/-2, not
+   XOR-1: invalid Color fed attacked()/king_sq()/occupancy() (phantom
+   in_check, OOB reads) (ba4212f).
+3. search: is_draw returned reps >= 1 — the rep_stack always contains the
+   node's own zobrist, so EVERY child node scored as a draw -> the whole
+   search evaluated everything as 0 -> move choice = first legal move
+   (a5a527c). This alone explains the AB arm's -478/-524/-489 ladder
+   disasters (passive pawn pushes, zero wins).
+4. uci: ABNodes parsed with substr(vpos+9) — chopped '400000' to '0000'
+   -> node_cap 0 -> time_up everywhere (ab6e723). With node_cap fixed the
+   search finds mate-in-1 instantly (validated: Qa8# on the back-rank FEN).
+
+REMAINING BLOCKER (measured): NetQ::evaluate ~50-100ms per call (~8-20
+evals/s) — the 3s move budget fits only ~25-30 evals = depth 1 + a few
+children. The corrected AB-vs-searchless ladder still loses -489 BECAUSE
+the AB arm times out mid-root-move and plays the first legal move.
+Perft is perfect at depth 4+ (apply/movegen exonerated). The eval cost:
+~25M scalar MACs (O(64x64xhd) attention x 8 layers) + per-call input
+requantization + the full 4096-entry policy head computed per leaf eval
+when the search only needs the 3-float wdl.
+
+THE OPTIMIZATION PROJECT (next session, est. 20-50x total):
+a. value-only fast path: skip policy scores entirely for non-root nodes
+b. multithread the per-head attention + per-square FFN loops (6 cores)
+c. fuse quantization into the producing step (kill per-call lrint loops)
+d. optional: softmax/exp vectorization
+Target: <=3ms/eval -> 1000+ evals per 3s move -> depth 3-4 + qsearch ->
+REAL search strength over the champion net. That is the 2500 path:
+search over a trained eval is how every strong engine in history got there.
