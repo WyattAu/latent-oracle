@@ -1580,3 +1580,29 @@ the AB-vs-searchless ladder decides whether search unlocks 2500.
   search track waits for the eval-speed project + the SF-value retarget
   verdict (ft-sfvalue running: value loss 0.85 → the retarget in progress,
   value-head-only, trunk+policy frozen — zero-drift A/B design).
+
+## 2026-11-20 (23:15) — THE GM ELITE FINE-TUNE: ft_elite_q = +194 over champ — THE NEW STRONGEST NET
+The DeepNoc delta #1 (elite GM-game data) executed: repl_nodist
+fine-tuned 2 epochs at lr 1e-4 on the 7.9M-record min-elo-2500 pool
+(the 2026-05/06 lichess archives re-sharded at 2500). Verdicts
+(150 games each, INT8, attribution-checked):
+
+  ft_elite_q vs repl_nodist_q:  +39.5 +- 29  (55.7% — the elite delta,
+                                suggestive-positive)
+  ft_elite_q vs champ_q:        +194 +- 33  (75.3% — THE NEW STRONGEST)
+
+STANDINGS (INT8-normalized, vs champ_q): ft_elite_q +194, repl_nodist_q
++170, scale160_q +150, repl_q +108, champ 0. CONSISTENT: the elite
+fine-tune on repl_nodist (+170 + 39 = +209 predicted) measured +194 ✓.
+
+ABSOLUTE: repl_nodist_q ~1940 -> ft_elite_q ~1980 (SF-anchored).
+THE 2500 GAP: ~520.
+
+DEEPNOC DELTA SCOREBOARD: #1 elite GM-game data: +39 (direction
+confirmed; scale it — more months at min-elo 2500). #2 policy QAT:
+NEXT (--qat exists, untested). #3 trunk style: parked.
+THE SEARCH TRACK: still parked (the AB arm lost -676 even on the
+SF-value-retargeted net; the eval-speed project + the trunk-level value
+retarget remain its unblock conditions).
+NOTE: the skill estate-ml-experiments gained the four validation gates +
+measurement discipline from this arc (chezmoi c81fbd4, applied).
