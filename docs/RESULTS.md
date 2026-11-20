@@ -1528,3 +1528,38 @@ ALSO MEASURED: NetQ::evaluate throughput ~8-20 evals/s single-thread —
 the engine's INT8 eval is ~100x slower than NNUE-class implementations;
 per-node net evals with a 2048-batched deadline check made the AB arm
 play moves instantly-mislabeled (the "connection stalls" failure).
+
+## 2026-11-20 (06:00) — THE AB SEARCH WORKS; THE VALUE HEAD IS THE CEILING (human-noise-calibrated)
+The t60 ladder (8s/move, 400k nodes, tc 60+1, 50 games): the AB arm lost
+91% again. But the per-move forensics flip the diagnosis: the AB arm's
+SEARCHED moves (8s each ✓ verified by move timings) were reasonable
+(Kc3 attacking the b2 rook, Kc2); the LOSING moves were the POLICY arm's
+instant tactical shots (Rb1/Rxf1/a1=R). And the decisive experiment on
+the exact position: at depth 1 the search correctly finds Kxb2 winning
+a rook; at depth 2 it re-scores Kxb2 the same as quiet retreats.
+
+DIAGNOSIS: the value head is CALIBRATED TO HUMAN NOISE. It was trained
+on raw lichess game outcomes — in human games, rook-up positions get
+drawn and blundered constantly, so the trained win-probability for a
+rook-up position is only ~56-65%, not 85%. value_cp therefore prices
+a captured rook at ~+120, indistinguishable from a quiet retreat. THE
+SEARCH CANNOT ADD STRENGTH OVER NOISY VALUE TARGETS. The policy head
+stays sharp because "moves humans played" generalizes; the value head's
+targets do not.
+
+MEASURED CALIBRATION (SF-anchored, Nov 20): repl_nodist_q = ~1940 +- 50
+(42% vs SF@2000). The 2500 gap is ~560. Eval speed: value-only eval
+~122ms (the threading under the box's load gives little; the single-
+thread cost is ~25M scalar MACs + 524k scalar lrint requantizations +
+524k scalar erff gelu calls per eval).
+
+THE FIX (the Lc0 thesis, applied): retrain the VALUE HEAD on DEEP-ENGINE
+win probabilities instead of raw results. The searchless_chess AV bags
+carry (position, move, win_prob) with win_prob from deep Stockfish —
+2 bags on disk (2.9GB), more downloadable. Value target: win_prob from
+the AV bags; game results elsewhere; then the AB search over a CLEAN
+value head adds real strength (this is exactly how Lc0-class engines
+get strength: search over policy + clean value).
+NEXT SESSION: download/inspect more AV bags -> trainer --value-sf
+targets -> retrain repl_nodist with SF-anchored value targets ->
+the AB-vs-searchless ladder decides whether search unlocks 2500.
