@@ -2,7 +2,59 @@
 (2026-10-30; numbers from RESULTS.md, RESEARCH-HIGHLEVEL.md, the measured
 SF-limit ladder, and the verified 2025-2026 literature)
 
+## 0. THE DUAL-TRACK PROGRAM (2026-11-20 — supersedes the single-track state below)
+
+The program maintains TWO first-class models from the same training stack,
+because they serve different competitions and research goals:
+
+### Track S — Searchless (policy-only)
+- **Model**: policy argmax over legal moves, one forward pass, instant moves.
+- **Champion**: repl_nodist_q (80M real-result pool x 3 epochs, no distill,
+  INT8-served) — dethroned net_q_v2 by +170 in the sign-audited
+  INT8-normalized ladder (RESULTS.md 2026-11-14/19).
+- **Calibration**: ~1940 +- 50 absolute (SF-anchored, Nov 20: 42% vs
+  SF@Elo-2000). The searchless ceiling is near for this architecture:
+  sample scaling saturated at 240M samples; the remaining levers are
+  POLICY-quality only (elite fine-tune, policy-head QAT).
+- **Competitions**: searchless/chessbench-class benchmarks, the DeepNoc
+  comparison line (2374 flagship to chase), human-alignment categories.
+
+### Track AB — Net + alpha-beta search
+- **Model**: the same net with SearchAB=true (alpha-beta over net-evaluated
+  leaves, 400k nodes / 8s per move). One binary, one weights file, two
+  serving modes via UCI options.
+- **State**: the searcher's four logic bugs are fixed and validated
+  (startpos-moves handler, ~uint8_t Color, is_draw 3-fold, node_cap parse;
+  RESULTS.md 2026-11-19/20). Search over the CURRENT value head adds zero
+  strength (ladder -489): the value head is calibrated to human-noise
+  game results — it prices a captured rook at +120cp, indistinguishable
+  from a quiet retreat, so the search cannot outplay the policy.
+- **The unlock (running)**: fine-tune the value head on deep-Stockfish
+  win_prob targets (the searchless_chess AV bags' win_prob field — the
+  Lc0 thesis: clean value targets, then search adds real strength).
+  ops/ft_sfvalue.sh: fine-tune -> INT8 -> ladders (AB-vs-searchless,
+  vs champ_q, vs base). Complete ~Nov 20 late.
+- **The second unlock**: NetQ::evaluate is ~122ms value-only (~8-20
+  evals/s) — 20-50x slower than NNUE-class. The optimization (SIMD
+  attention, quantization fusion, value-only path (done, -30%),
+  threads-when-idle) is the follow-on once the clean-value ladder proves
+  the search direction.
+- **Competitions**: classical engine strength (the 2500 target), CCRL.
+
+### The rules that keep the tracks honest
+1. Ladders are INT8-vs-INT8 (or FP32-vs-FP32) — serving precision is part
+   of the measurement (the sign audit, 2026-11-14).
+2. Recipe selection happens AT serving precision: the distill inversion
+   (+147 FP32 / -131 INT8) proved FP32 ladders select the wrong recipe
+   for INT8-served engines.
+3. Every keeper net keeps its .pt (re-exportable) and its INT8 (.bin).
+4. Both tracks share the training stack; a fine-tune can feed both (the
+   policy ladders decide whether Track S adopts it).
+
 ## 1. Where we are
+
+(2026-10-30 state — HISTORICAL, numbers superseded by RESULTS.md
+2026-11-14/20 and the sign audit; kept for the lever analysis below.)
 
 Our champion (net_q_v2: 6.4M-param square-token transformer, single forward
 pass, no search, INT8-served) measures **−129 / −193 / −252 vs the Stockfish
