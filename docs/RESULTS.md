@@ -1505,3 +1505,26 @@ d. optional: softmax/exp vectorization
 Target: <=3ms/eval -> 1000+ evals per 3s move -> depth 3-4 + qsearch ->
 REAL search strength over the champion net. That is the 2500 path:
 search over a trained eval is how every strong engine in history got there.
+
+## 2026-11-20 (01:10) — ABSOLUTE ELO CALIBRATED: repl_nodist_q = ~1940 (SF-anchored); the 2500 gap is ~560, and the biggest lever is a WORKING SEARCH
+Calibration ladder vs Stockfish 16.1 UCI_Elo 2000 (UCI_LimitStrength,
+tc 15+0.2, 50 games, openings.epd): repl_nodist_q scored 42.0% (16 W / 24 L)
+-> SF-anchored absolute Elo ~1940 +- 50.
+
+THE 2500 GAP: ~560 Elo. Lever ranking by measured/expected yield:
+1. WORKING SEARCH (+300-600 class): the AB searcher is now logically
+   correct (four bugs fixed: startpos-moves handler, ~uint8_t Color,
+   is_draw >= 1, node_cap parse) and finds mates — but it starves:
+   NetQ::evaluate costs 122-174ms (value-only vs full), so the 3s move
+   budget fits ~25 evals = depth 1. Target <=10ms/eval via: value-only
+   path (done, -30%), SIMD/vectorized attention (O(64x64xhd) scalar
+   loops), quantization fusion into layernorm outputs, threads when the
+   box is idle. A depth 4-6 search + qsearch over this eval typically
+   clears 2500.
+2. Eval-quality deltas (+30-100 each): elite fine-tune (min-elo 2500
+   shard from the on-disk archives), policy QAT (--qat, untested at scale).
+3. Saturated: sample scaling (480M = 240M).
+ALSO MEASURED: NetQ::evaluate throughput ~8-20 evals/s single-thread —
+the engine's INT8 eval is ~100x slower than NNUE-class implementations;
+per-node net evals with a 2048-batched deadline check made the AB arm
+play moves instantly-mislabeled (the "connection stalls" failure).
