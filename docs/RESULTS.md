@@ -1563,3 +1563,20 @@ get strength: search over policy + clean value).
 NEXT SESSION: download/inspect more AV bags -> trainer --value-sf
 targets -> retrain repl_nodist with SF-anchored value targets ->
 the AB-vs-searchless ladder decides whether search unlocks 2500.
+
+## 2026-11-20 (17:00) — fast-math null; the selftest confirms the value head is materially insensitive; the DeepNoc-recipe pivot
+- -ffast-math on netq.cpp: no measurable speed change (125/107ms value/full
+  under box load) — GCC did not auto-vectorize these loop shapes. The real
+  eval-speed fix needs hand-written AVX2 (attention dots, requant, gelu) —
+  a dedicated project, parked behind the searchless line.
+- THE SELFTEST (new instrument-gate binary, src/selftest.cpp): perft ✓,
+  AB-legality ✓, mate-in-1 ✗ at 200k nodes (✓ at 500k — budget), and the
+  EVAL-SIGN BATTERY: the value head rates WHITE UP A FULL QUEEN (winning
+  position, 26 legal moves) at wdl0 = 0.572 — materially insensitive.
+  THE HUMAN-NOISE DIAGNOSIS CONFIRMED BY THE INSTRUMENT: the value head
+  trained on raw lichess outcomes cannot price material.
+- THE STRATEGIC PIVOT: the searchless line first (the DeepNoc recipe:
+  elite GM-game data + policy QAT — DeepNoc hit 2374 SEARCHLESS). The
+  search track waits for the eval-speed project + the SF-value retarget
+  verdict (ft-sfvalue running: value loss 0.85 → the retarget in progress,
+  value-head-only, trunk+policy frozen — zero-drift A/B design).
