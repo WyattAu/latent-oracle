@@ -1606,3 +1606,30 @@ SF-value-retargeted net; the eval-speed project + the trunk-level value
 retarget remain its unblock conditions).
 NOTE: the skill estate-ml-experiments gained the four validation gates +
 measurement discipline from this arc (chezmoi c81fbd4, applied).
+
+## 2026-11-26 (05:15) — DEEPNOC DELTA #2 FALSIFIED: naive every-step policy QAT is destructive (-468 matched-precision)
+The pre-registered QAT replication (160M x 3ep + distill + --qat, 1.25M
+steps, the projection applied after EVERY step) vs its own non-QAT twin
+(repl_q, matched INT8 serving):
+
+  ft_qat_q vs repl_q:   repl_q +468 +- 58   (ft_qat_q: ZERO wins in 150)
+  ft_qat_q vs champ_q:  champ +306 +- 40
+
+The training metrics looked normal (match 0.28, value 0.7-1.0) but the
+PLAY collapsed — the every-step s8 projection injected quantization
+noise into the weights 1.25M times; the net converged to a worse weight
+configuration that the post-hoc INT8 of the non-QAT twin dominates.
+PRE-REGISTRATION: falsified (far outside the +-28 tie band, wrong
+direction).
+
+DEEPNOC SCOREBOARD (final): #1 elite GM data +39 (confirmed direction,
+ft_elite_q = +194, the champion). #2 policy QAT: FALSIFIED in the naive
+form. #3 trunk style: untried.
+
+THE STANDARD FIX, QUEUED FOR NEXT SESSION: late-start QAT — train plain
+for the first ~90% of steps, enable the projection only for the last
+10% (the weights settle first, then the quantization-aware phase adapts
+them). Implementation: --qat-start-frac 0.9 in train.py (~20 lines), a
+55h run, verdict ~Dec 2. If late-start QAT also fails, the QAT lever is
+closed and the eval-speed project (a working AB search over the elite
+net) becomes the only remaining path to 2500.
