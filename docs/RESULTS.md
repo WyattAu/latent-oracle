@@ -1633,3 +1633,23 @@ them). Implementation: --qat-start-frac 0.9 in train.py (~20 lines), a
 55h run, verdict ~Dec 2. If late-start QAT also fails, the QAT lever is
 closed and the eval-speed project (a working AB search over the elite
 net) becomes the only remaining path to 2500.
+
+## 2026-11-21 — REMOTE-GPU RECONNAISSANCE: all three candidate boxes fail the instrument gate
+The proposed training migration (TrueNAS "k2 GPUs" / hosting01 / gpu-lab)
+was reconnoitered before any code moved:
+
+| Box | GPU | Verdict |
+|---|---|---|
+| TrueNAS 192.168.1.3 | NONE visible (no driver) | no CUDA at all; 4c i5-7400, 15GB RAM |
+| hosting01 192.168.0.120 (R730) | NONE | 32c E5-2620v4 — CPU-only |
+| gpu-lab 192.168.0.131 | 2x GRID K2 (GK104GL, 2013) | Kepler: CUDA <= 10.2 — PyTorch >= 2 REQUIRES CUDA >= 11.8; no modern wheels exist |
+
+The "k2 GPUs" are 2013 GRID K2s: ~2.8 TFLOPS fp32 combined (below the
+local RTX 2060's ~13 TFLOPS), no tensor cores, no int8 tensor ops, an
+Ubuntu-16.04-era guest OS (Python 3.5), and the .0.x guests cannot reach
+the .1.x NAS segment anyway. THE MIGRATION IS DEAD ON ARRIVAL: the local
+RTX 2060 at its measured 185 steps/min (batch 384 fp32) outruns every
+candidate. Training stays local.
+
+The scaling path for more compute: estate cloud rental (ito-training:
+H100/H200 fixed-rate) — a price decision, not an infrastructure one.
