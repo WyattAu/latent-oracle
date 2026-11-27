@@ -149,9 +149,21 @@ int ab(PositionState p, int depth, int alpha, int beta, int ply, SearchCtx& ctx)
 
     MoveList ml;
     generate_legal(p, ml);
-    if (ply == 0 || ctx.nodes < 3)
-        std::fprintf(stderr, "[ab] ply=%d depth=%d ml.count=%u in_check=%d\n",
-                     ply, depth, ml.count, in_check);
+    if (ply == 0 || (ply == 1 && ctx.nodes < 900) || ctx.nodes < 3)
+        std::fprintf(stderr,
+                     "[ab] ply=%d depth=%d ml.count=%u in_check=%d side=%u nodes=%llu "
+                     "W=%llx|%llx B=%llx|%llx\n",
+                     ply, depth, ml.count, in_check,
+                     static_cast<unsigned>(p.side_to_move),
+                     static_cast<unsigned long long>(ctx.nodes),
+                     static_cast<unsigned long long>(p.pieces[0][0] | p.pieces[0][1] |
+                                                      p.pieces[0][2] | p.pieces[0][3] |
+                                                      p.pieces[0][4] | p.pieces[0][5]),
+                     static_cast<unsigned long long>(p.pieces[0][PAWN]),
+                     static_cast<unsigned long long>(p.pieces[1][0] | p.pieces[1][1] |
+                                                      p.pieces[1][2] | p.pieces[1][3] |
+                                                      p.pieces[1][4] | p.pieces[1][5]),
+                     static_cast<unsigned long long>(p.pieces[1][PAWN]));
     if (ml.count == 0)
         return in_check ? -MATE + ply : 0;
 
@@ -182,6 +194,22 @@ int ab(PositionState p, int depth, int alpha, int beta, int ply, SearchCtx& ctx)
     for (std::uint32_t i = 0; i < ml.count; ++i) {
         Move m = ml.moves[i];
         PositionState child = apply(p, m);
+        if (ply == 1 && ctx.nodes < 900)
+            std::fprintf(stderr, "[ab] ply1 applied move=%s -> W=%llx|%llx B=%llx|%llx\n",
+                         move_to_uci(m).c_str(),
+                         static_cast<unsigned long long>(child.pieces[0][0] | child.pieces[0][1] |
+                                                          child.pieces[0][2] | child.pieces[0][3] |
+                                                          child.pieces[0][4] | child.pieces[0][5]),
+                         static_cast<unsigned long long>(child.pieces[0][PAWN]),
+                         static_cast<unsigned long long>(child.pieces[1][0] | child.pieces[1][1] |
+                                                          child.pieces[1][2] | child.pieces[1][3] |
+                                                          child.pieces[1][4] | child.pieces[1][5]),
+                         static_cast<unsigned long long>(child.pieces[1][PAWN]));
+        // belt-and-braces (2026-11-20): the movegen handed us an opponent
+        // piece's move in this position once (g8g7 from a white-to-move
+        // root) — refuse any move whose from-square isn't ours.
+        if (!(occupancy(p, us) & SQUARE_BB[move_from(m)]))
+            continue;
         if (attacked(child, king_sq(child, us), them))
             continue;
         ctx.rep_stack.push_back(child.zobrist);

@@ -154,7 +154,7 @@ void handle_line(Session& s, const std::string& line) {
     if (!(iss >> cmd)) return;
 
     if (cmd == "uci") {
-        std::cout << "id name latent-oracle 0.1.0\n";
+        std::cout << "id name latent-oracle 0.2.0\n";
         std::cout << "id author Wyatt Au\n";
         std::cout << "option name WeightsFile type string default\n";
         std::cout << "option name RecyclePasses type spin default 1 min 1 max 8\n";

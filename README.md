@@ -18,7 +18,30 @@ strictly as a binary label generator in training (M1+); no GPL source is read.
 | Milestone | Scope | State |
 |-----------|-------|-------|
 | M0 | Board core: 128-byte `PositionState`, PEXT/magic/classical movegen, perft to d6, UCI, symbolic draw gates | **done** |
-| M1 | Lichess DB + Stockfish-labeled distillation; first policy-only Elo | **first numbers live** (see below) |
+| M1 | Lichess DB + Stockfish-labeled distillation; first policy-only Elo | **done** |
+| M2 | Scaling + data ablations + the dual-track program (searchless / search) | **done — see RESULTS.md** |
+
+## Pretrained weights (v0.2.0)
+
+| Weights | Recipe | Strength (SF-anchored) |
+|---------|--------|------------------------|
+| **ft_elite_q.bin** | 160M lichess positions (min-elo 2000) × 3 epochs + distill, then 2-epoch fine-tune on 7.9M elite (min-elo 2500) positions | **~1980** — beats Stockfish@Elo-2000 75/25 |
+| net_q_v2.bin | 20M lichess positions × 2 epochs (the M1-era champion) | ~1790 |
+
+Both are 6.4M-param transformers, INT8-quantized (8.2 MB), served
+searchless: one forward pass, policy argmax over legal moves, instant
+response. Download from the [v0.2.0 release](../../releases/tag/v0.2.0),
+then:
+
+```sh
+./latent-oracle
+setoption name WeightsFile value /path/to/ft_elite_q.bin
+```
+
+Honest placement: at/above the Braun searchless policy-only line
+(1658–1717), in the Maia-2 band (1900), ~400 Elo behind DeepNoc's 2374
+searchless flagship (3.25M GM games + OnlineQAT). The training data is
+100% lichess (CC0); the selftest gate must pass before any release.
 
 ## Results (research map)
 
@@ -58,6 +81,8 @@ shard. Same binary, same openings, same conditions for all engines.
 
 ```sh
 cmake --preset debug && cmake --build --preset debug -j
+cmake --build --preset release -j
+./build/release/selftest          # instrument gate — must pass before play
 ctest --preset debug
 ```
 

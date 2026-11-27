@@ -77,14 +77,19 @@ add_library(lo_core STATIC
     src/position.cpp
     src/nn/net.cpp
     src/nn/netq.cpp
-    src/tb/tb.cpp
-    src/engine_oracle/engine.cpp
+    src/tb/tb.cpp    src/engine_oracle/engine.cpp
     src/engine_oracle/search.cpp
     src/uci/uci.cpp)
 target_link_libraries(lo_core PUBLIC fathom)
 
 target_include_directories(lo_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(lo_core PUBLIC Threads::Threads)
+
+# netq: fast-math for the eval hot path — auto-vectorizes gelu (libmvec
+# erf), softmax, attention dots, layernorm. The FP-semantics shifts are
+# far below the int8 quantization noise; play-only, no trainer parity.
+set_source_files_properties(src/nn/netq.cpp PROPERTIES
+    COMPILE_OPTIONS "-ffast-math;-fno-math-errno;-funsafe-math-optimizations")
 
 target_compile_options(lo_core PRIVATE
     -Wall -Wextra -Wpedantic
@@ -96,6 +101,13 @@ target_compile_options(lo_core PRIVATE
 add_executable(latent-oracle src/main.cpp)
 target_link_libraries(latent-oracle PRIVATE lo_core)
 target_compile_options(latent-oracle PRIVATE
+    -Wall -Wextra -Wpedantic
+    $<$<BOOL:${LO_WARNINGS_AS_ERRORS}>:-Werror>)
+
+# selftest: the instrument gate for search/eval changes (run before ladders)
+add_executable(selftest src/selftest.cpp)
+target_link_libraries(selftest PRIVATE lo_core)
+target_compile_options(selftest PRIVATE
     -Wall -Wextra -Wpedantic
     $<$<BOOL:${LO_WARNINGS_AS_ERRORS}>:-Werror>)
 
